@@ -53,7 +53,7 @@ export type ComsRuntimeDeps = {
 	peerCards: Map<string, AgentCard & { staleCount: number }>;
 	getDisplayProject: () => string | null;
 	getIncludeExplicit: () => boolean;
-	renderPool: (width: number, theme: unknown) => string[];
+	renderPool: (width: number, theme: any) => string[];
 };
 
 export class ComsRuntime {

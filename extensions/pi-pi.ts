@@ -24,6 +24,7 @@ import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
 import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
 import { loadPiPiExperts, displayName } from "./lib/agentDefinitions.ts";
+import { installRawWorkflowGrid } from "./lib/workflowGrid.ts";
 
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
@@ -160,42 +161,17 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	function updateWidget() {
-		if (!widgetCtx) return;
-
-		widgetCtx.ui.setWidget("pi-pi-grid", (_tui: any, theme: any) => {
-
-			return {
-				render(width: number): string[] {
-					if (experts.size === 0) {
-						return ["", theme.fg("dim", "  No experts found. Add agent .md files to .pi/agents/pi-pi/")];
-					}
-
-					const cols = Math.min(gridCols, experts.size);
-					const gap = 1;
-					// avoid Text component's ANSI-width miscounting by returning raw lines
-					const colWidth = Math.floor((width - gap * (cols - 1)) / cols) - 1;
-					const allExperts = Array.from(experts.values());
-
-					const lines: string[] = [""]; // top margin
-
-					for (let i = 0; i < allExperts.length; i += cols) {
-						const rowExperts = allExperts.slice(i, i + cols);
-						const cards = rowExperts.map(e => renderCard(e, colWidth, theme));
-
-						while (cards.length < cols) {
-							cards.push(Array(6).fill(" ".repeat(colWidth)));
-						}
-
-						const cardHeight = cards[0].length;
-						for (let line = 0; line < cardHeight; line++) {
-							lines.push(cards.map(card => card[line] || "").join(" ".repeat(gap)));
-						}
-					}
-
-					return lines;
-				},
-				invalidate() {},
-			};
+		installRawWorkflowGrid({
+			widgetKey: "pi-pi-grid",
+			getUi: () => widgetCtx?.ui ?? null,
+			getItems: () => Array.from(experts.values()),
+			getCols: () => gridCols,
+			renderCard: (state, colWidth, theme) => renderCard(state as ExpertState, colWidth, theme),
+			emptyLine: (theme) =>
+				(theme as { fg: (c: string, s: string) => string }).fg(
+					"dim",
+					"  No experts found. Add agent .md files to .pi/agents/pi-pi/",
+				),
 		});
 	}
 

@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-05-25
+
+### Changed
+
+- pi-pi dashboard uses shared workflowGrid helpers
+
+## [0.2.9] - 2026-05-25
+
+### Changed
+
+- ComsRuntime module; thin coms index adapter
+
 ## [0.2.8] - 2026-05-24
 
 ### Changed
