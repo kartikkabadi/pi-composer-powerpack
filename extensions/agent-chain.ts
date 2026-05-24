@@ -29,8 +29,8 @@ import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { readFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
-import { powerpackAgentsDir } from "./powerpackPaths.ts";
-import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
+import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
+import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
 import {
 	scanAgents,
 	loadChainDefinitions,
@@ -40,7 +40,6 @@ import {
 	type ChainDef,
 } from "./lib/agentDefinitions.ts";
 
-const PI_AGENT_HOME = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME || "", ".pi", "agent");
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
 interface StepState {
@@ -84,7 +83,7 @@ export default function (pi: ExtensionAPI) {
 		}
 
 			const packageChainPath = join(PACKAGE_AGENTS_DIR, "agent-chain.yaml");
-			const globalChainPath = join(PI_AGENT_HOME, "agents", "agent-chain.yaml");
+			const globalChainPath = join(piAgentHome(), "agents", "agent-chain.yaml");
 			const projectChainPath = join(cwd, ".pi", "agents", "agent-chain.yaml");
 			let merged: ChainDef[] = [];
 			defaultChainHint = undefined;
@@ -325,7 +324,7 @@ ${agentCatalog}
 		const hasSession = agentSessions.get(agentKey);
 		const state = stepStates[stepIndex];
 
-		return spawnPiJsonProcess(
+		return runSpecialistSpawn(
 			import.meta.url,
 			{
 				task,

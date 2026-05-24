@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-05-25
+
+### Changed
+
+- Canonical `piAgentHome()` in powerpackPaths; removed duplicate `getPiAgentHome`
+
 ## [0.2.1] - 2026-05-24
 
 ### Changed

@@ -1,9 +1,10 @@
-import { homedir } from "node:os";
-import { join } from "node:path";
 import {
 	powerpackCursorSdkExtension,
 	powerpackPath,
+	piAgentHome,
 } from "../powerpackPaths.ts";
+
+export { piAgentHome };
 
 export function getCursorModel(): string {
 	return process.env.PI_SUBAGENT_MODEL || "cursor/composer-2.5";
@@ -26,10 +27,6 @@ export function getDamageControlExtensionPath(callerUrl: string): string {
 
 export function shouldLoadChildDamageControl(): boolean {
 	return process.env.PI_SUBAGENT_DAMAGE_CONTROL !== "0";
-}
-
-export function getPiAgentHome(): string {
-	return process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
 }
 
 export type PiChildOptions = {

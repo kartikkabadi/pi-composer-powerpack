@@ -21,11 +21,10 @@ import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
-import { powerpackAgentsDir } from "./powerpackPaths.ts";
-import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
+import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
+import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
 import { parseAgentMarkdown, displayName } from "./lib/agentDefinitions.ts";
 
-const PI_AGENT_HOME = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME || "", ".pi", "agent");
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
 // ── Types ────────────────────────────────────────
@@ -81,7 +80,7 @@ export default function (pi: ExtensionAPI) {
 			// override global and bundled package defaults by name.
 			const packagePiPiDir = join(PACKAGE_AGENTS_DIR, "pi-pi");
 			const projectPiPiDir = join(cwd, ".pi", "agents", "pi-pi");
-			const globalPiPiDir = join(PI_AGENT_HOME, "agents", "pi-pi");
+			const globalPiPiDir = join(piAgentHome(), "agents", "pi-pi");
 			const dirs = [packagePiPiDir, globalPiPiDir, projectPiPiDir];
 
 			experts.clear();
@@ -252,7 +251,7 @@ export default function (pi: ExtensionAPI) {
 		state.queryCount++;
 		updateWidget();
 
-		return spawnPiJsonProcess(
+		return runSpecialistSpawn(
 			import.meta.url,
 			{
 				task: question,
@@ -559,7 +558,7 @@ Ask specific questions about what you need to BUILD. Each expert will return doc
 		const expertNames = Array.from(experts.values()).map(s => displayName(s.def.name)).join(", ");
 
 			const projectOrchestratorPath = join(_ctx.cwd, ".pi", "agents", "pi-pi", "pi-orchestrator.md");
-			const globalOrchestratorPath = join(PI_AGENT_HOME, "agents", "pi-pi", "pi-orchestrator.md");
+			const globalOrchestratorPath = join(piAgentHome(), "agents", "pi-pi", "pi-orchestrator.md");
 			const packageOrchestratorPath = join(PACKAGE_AGENTS_DIR, "pi-pi", "pi-orchestrator.md");
 			const orchestratorPath = existsSync(projectOrchestratorPath)
 				? projectOrchestratorPath

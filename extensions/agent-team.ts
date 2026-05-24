@@ -22,9 +22,9 @@ import { Type } from "typebox";
 import { Text, type AutocompleteItem, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { readdirSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
+import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
 import { applyExtensionDefaults } from "./themeMap.ts";
-import { powerpackAgentsDir } from "./powerpackPaths.ts";
+import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
 import {
 	scanAgents,
 	loadTeamsYaml,
@@ -33,7 +33,6 @@ import {
 	type AgentDef,
 } from "./lib/agentDefinitions.ts";
 
-const PI_AGENT_HOME = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME || "", ".pi", "agent");
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
 // ── Types ────────────────────────────────────────
@@ -79,7 +78,7 @@ export default function (pi: ExtensionAPI) {
 
 		// Load teams from project config first, then the Pi-global curated setup.
 			const packageTeamsPath = join(PACKAGE_AGENTS_DIR, "teams.yaml");
-			const globalTeamsPath = join(PI_AGENT_HOME, "agents", "teams.yaml");
+			const globalTeamsPath = join(piAgentHome(), "agents", "teams.yaml");
 			const projectTeamsPath = join(cwd, ".pi", "agents", "teams.yaml");
 			teams = {};
 			if (existsSync(packageTeamsPath)) {
@@ -270,7 +269,7 @@ export default function (pi: ExtensionAPI) {
 		const agentKey = state.def.name.toLowerCase().replace(/\s+/g, "-");
 		const agentSessionFile = join(sessionDir, `team-${agentKey}.json`);
 
-		return spawnPiJsonProcess(
+		return runSpecialistSpawn(
 			import.meta.url,
 			{
 				task,

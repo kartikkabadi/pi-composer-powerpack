@@ -1,7 +1,8 @@
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { getPiAgentHome } from "./subagentConfig.ts";
+import { parseMarkdownFrontmatter } from "./frontmatter.ts";
+import { piAgentHome } from "./subagentConfig.ts";
 
 export type AgentDef = {
 	name: string;
@@ -33,36 +34,49 @@ export function displayName(name: string): string {
 export function parseAgentMarkdown(filePath: string): AgentDef | null {
 	try {
 		const raw = readFileSync(filePath, "utf-8");
-		const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-		if (!match) return null;
-
-		const frontmatter: Record<string, string> = {};
-		const skills: string[] = [];
-		for (const line of match[1].split("\n")) {
-			const skillItem = line.match(/^\s+-\s+(.+)$/);
-			if (skillItem) {
-				skills.push(skillItem[1].trim());
-				continue;
-			}
-			const idx = line.indexOf(":");
-			if (idx > 0) {
-				frontmatter[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-			}
-		}
-
-		if (!frontmatter.name) return null;
+		const { fields, skills, body } = parseMarkdownFrontmatter(raw);
+		if (!fields.name) return null;
 
 		return {
-			name: frontmatter.name,
-			description: frontmatter.description || "",
-			tools: frontmatter.tools || "read,grep,find,ls",
-			systemPrompt: match[2].trim(),
+			name: fields.name,
+			description: fields.description || "",
+			tools: fields.tools || "read,grep,find,ls",
+			systemPrompt: body,
 			skills,
 			filePath,
 		};
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Load Pi-Pi expert agents for a project cwd.
+ *
+ * Precedence (later wins on name collision): bundled package `agents/pi-pi/`,
+ * global `~/.pi/agent/agents/pi-pi/`, then project `.pi/agents/pi-pi/`.
+ * Skips `pi-orchestrator.md`.
+ */
+export function loadPiPiExperts(cwd: string, packageAgentsDir: string): Map<string, AgentDef> {
+	const experts = new Map<string, AgentDef>();
+	const dirs = [
+		join(packageAgentsDir, "pi-pi"),
+		join(piAgentHome(), "agents", "pi-pi"),
+		join(cwd, ".pi", "agents", "pi-pi"),
+	];
+
+	for (const dir of dirs) {
+		if (!existsSync(dir)) continue;
+		for (const filePath of collectMarkdownFiles(dir, false)) {
+			if (filePath.endsWith("pi-orchestrator.md")) continue;
+			const def = parseAgentMarkdown(filePath);
+			if (def) {
+				experts.set(def.name.toLowerCase(), def);
+			}
+		}
+	}
+
+	return experts;
 }
 
 function collectMarkdownFiles(dir: string, includePiPiSubdir: boolean): string[] {
@@ -94,13 +108,13 @@ export function scanAgents(options: {
 	includePiPiSubdir?: boolean;
 }): Map<string, AgentDef> {
 	const { cwd, packageAgentsDir, includePiPiSubdir = true } = options;
-	const piAgentHome = getPiAgentHome();
+	const agentHome = piAgentHome();
 	const dirs = [
 		join(cwd, "agents"),
 		join(cwd, ".claude", "agents"),
 		join(cwd, ".pi", "agents"),
 		packageAgentsDir,
-		join(piAgentHome, "agents"),
+		join(agentHome, "agents"),
 	];
 
 	const agents = new Map<string, AgentDef>();
