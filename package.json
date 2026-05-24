@@ -1,10 +1,25 @@
 {
   "name": "pi-composer-powerpack",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "description": "Cursor Composer 2.5 and multi-agent workflow extensions for Pi.",
   "license": "MIT",
   "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "cursor",
+    "composer",
+    "multi-agent"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kartikkabadi/pi-composer-powerpack.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kartikkabadi/pi-composer-powerpack/issues"
+  },
+  "homepage": "https://github.com/kartikkabadi/pi-composer-powerpack#readme",
   "pi": {
     "extensions": [
       "./extensions/cursor-sdk.ts",
@@ -45,6 +60,13 @@
   },
   "scripts": {
     "check:secrets": "bash -lc '! rg -n \"(api[_-]?key|token|secret|password|bearer|sk-)\\\\s*[:=]\" . --glob \"!package-lock.json\" --glob \"!pnpm-lock.yaml\" --glob \"!node_modules\"'",
-    "pack:dry": "npm pack --dry-run --ignore-scripts"
+    "pack:dry": "npm pack --dry-run --ignore-scripts",
+    "lint": "eslint extensions/"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.4"
   }
 }

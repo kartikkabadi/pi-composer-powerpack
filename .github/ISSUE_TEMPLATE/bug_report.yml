@@ -1,0 +1,50 @@
+name: Bug report
+description: Something is broken or unexpected
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Do not include API keys or session dumps.
+
+  - type: input
+    id: pi-version
+    attributes:
+      label: Pi version
+      placeholder: "e.g. 0.75.3"
+    validations:
+      required: true
+
+  - type: input
+    id: install-method
+    attributes:
+      label: Install method
+      placeholder: "pi install https://github.com/kartikkabadi/pi-composer-powerpack"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. pi install ...
+        2. pi --model cursor/composer-2.5 --cursor-fast
+        3. /chain-mode
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

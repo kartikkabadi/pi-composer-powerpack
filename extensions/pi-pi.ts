@@ -18,9 +18,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { spawn } from "child_process";
-import { readdirSync, readFileSync, existsSync, mkdirSync } from "fs";
-import { join, resolve } from "path";
+import { spawn } from "node:child_process";
+import { readdirSync, readFileSync, existsSync, mkdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { powerpackAgentsDir, powerpackCursorSdkExtension, resolvePiBinary } from "./powerpackPaths.ts";
 

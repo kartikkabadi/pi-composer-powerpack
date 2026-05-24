@@ -11,8 +11,7 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { basename } from "path";
-import { fileURLToPath } from "url";
+import { basename } from "node:path";
 
 // ── Theme assignments ──────────────────────────────────────────────────────
 //
@@ -20,32 +19,19 @@ import { fileURLToPath } from "url";
 // Value = theme name from .pi/themes/<value>.json
 //
 export const THEME_MAP: Record<string, string> = {
-	"agent-chain":        "midnight-ocean",   // deep sequential pipeline
-	"agent-team":         "dracula",          // rich orchestration palette
-	"coms":               "ocean-breeze",     // peer-to-peer messaging, cross-boundary
-	"coms-net":           "ocean-breeze",     // peer-to-peer messaging, cross-boundary
-	"cross-agent":        "ocean-breeze",     // cross-boundary, connecting
-	"damage-control":     "gruvbox",          // grounded, earthy safety
-	"minimal":            "synthwave",        // synthwave by default now!
-	"pi-pi":              "rose-pine",        // warm creative meta-agent
-	"pure-focus":         "everforest",       // calm, distraction-free
-	"purpose-gate":       "tokyo-night",      // intentional, sharp focus
-	"session-replay":     "catppuccin-mocha", // soft, reflective history
-	"subagent-widget":    "cyberpunk",        // multi-agent futuristic
-	"system-select":      "catppuccin-mocha", // soft selection UI
-	"theme-cycler":       "synthwave",        // neon, it's a theme tool
-	"tilldone":           "everforest",       // task-focused calm
-	"tool-counter":       "synthwave",        // techy metrics
-	"tool-counter-widget":"synthwave",        // same family
+	"agent-chain": "midnight-ocean",
+	"agent-team": "dracula",
+	"auto-caveman": "gruvbox",
+	"coms": "ocean-breeze",
+	"cursor-sdk": "mono-black",
+	"damage-control-continue": "gruvbox",
+	"pi-pi": "rose-pine",
+	"subagent-widget": "cyberpunk",
+	"superset-hooks": "tokyo-night",
+	"tilldone": "everforest",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-
-/** Derive the extension name (e.g. "minimal") from its import.meta.url. */
-function extensionName(fileUrl: string): string {
-	const filePath = fileUrl.startsWith("file://") ? fileURLToPath(fileUrl) : fileUrl;
-	return basename(filePath).replace(/\.[^.]+$/, "");
-}
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
