@@ -9,14 +9,17 @@ import { tmpdir } from "node:os";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 let sendEnvelope;
+let readOneLineCapped;
+let makePingEnvelope;
 let setNetHooksForTests;
 let resetNetHooksForTests;
 let sockDir;
 
 before(async () => {
-	({ sendEnvelope, setNetHooksForTests, resetNetHooksForTests } = await import(
+	({ sendEnvelope, readOneLineCapped, setNetHooksForTests, resetNetHooksForTests } = await import(
 		join(repoRoot, "extensions", "coms", "transport.ts")
 	));
+	({ makePingEnvelope } = await import(join(repoRoot, "extensions", "coms", "protocol.ts")));
 	sockDir = mkdtempSync(join(tmpdir(), "coms-transport-test-"));
 });
 
@@ -140,4 +143,28 @@ test("injectable createConnection can be swapped for tests", async () => {
 
 	resetNetHooksForTests();
 	await new Promise((resolve) => server.close(resolve));
+});
+
+test("readOneLineCapped rejects oversized lines", async () => {
+	const server = net.createServer((socket) => {
+		socket.write("x".repeat(200) + "\n");
+	});
+	const endpoint = join(sockDir, "bigline.sock");
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(endpoint, resolve);
+	});
+
+	const socket = net.createConnection({ path: endpoint });
+	await assert.rejects(readOneLineCapped(socket, 64), /line too large/);
+	socket.destroy();
+	await new Promise((resolve) => server.close(resolve));
+});
+
+test("makePingEnvelope produces valid ping shape", () => {
+	const env = makePingEnvelope("sess-1", "/tmp/s.sock");
+	assert.equal(env.type, "ping");
+	assert.equal(env.sender_session, "sess-1");
+	assert.equal(env.hops, 0);
+	assert.ok(env.msg_id.length >= 20);
 });

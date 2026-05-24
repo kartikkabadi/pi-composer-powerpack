@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-05-24
+
+### Changed
+
+- coms transport readOneLineCapped and unified ping helper
+
 ## [0.2.7] - 2026-05-24
 
 ### Changed

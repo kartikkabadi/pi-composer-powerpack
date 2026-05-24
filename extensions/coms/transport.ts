@@ -78,39 +78,37 @@ export async function bindEndpoint(
 	});
 }
 
-export function readOneLine(socket: net.Socket): Promise<string> {
+export function readOneLineCapped(socket: net.Socket, maxBytes = LINE_CAP_BYTES): Promise<string> {
 	return new Promise((resolve, reject) => {
 		let buf = "";
 		let settled = false;
+		const finish = (fn: () => void) => {
+			if (settled) return;
+			settled = true;
+			socket.removeListener("data", onData);
+			fn();
+		};
 		const onData = (chunk: Buffer) => {
 			buf += chunk.toString("utf-8");
-			if (buf.length > LINE_CAP_BYTES) {
-				if (settled) return;
-				settled = true;
-				socket.removeListener("data", onData);
-				reject(new Error("line too large"));
+			if (buf.length > maxBytes) {
+				finish(() => reject(new Error("line too large")));
 				return;
 			}
 			const nl = buf.indexOf("\n");
 			if (nl >= 0) {
-				if (settled) return;
-				settled = true;
-				socket.removeListener("data", onData);
-				resolve(buf.slice(0, nl));
+				finish(() => resolve(buf.slice(0, nl)));
 			}
 		};
 		socket.on("data", onData);
-		socket.once("error", (err) => {
-			if (settled) return;
-			settled = true;
-			reject(err);
-		});
-		socket.once("close", () => {
-			if (settled) return;
-			settled = true;
-			reject(new Error("connection closed before line received"));
-		});
+		socket.once("error", (err) => finish(() => reject(err)));
+		socket.once("close", () =>
+			finish(() => reject(new Error("connection closed before line received"))),
+		);
 	});
+}
+
+export function readOneLine(socket: net.Socket): Promise<string> {
+	return readOneLineCapped(socket, LINE_CAP_BYTES);
 }
 
 export function sendEnvelope(

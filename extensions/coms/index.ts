@@ -26,6 +26,7 @@ import {
 	nowIso,
 	readCliFlags,
 	readFrontmatterFromArgv,
+	makePingEnvelope,
 	ulid,
 } from "./protocol.ts";
 import {
@@ -36,7 +37,7 @@ import {
 	writeRegistryAtomic,
 } from "./registry.ts";
 import { registerComsTools } from "./tools.ts";
-import { bindEndpoint, sendEnvelope } from "./transport.ts";
+import { bindEndpoint, readOneLineCapped, sendEnvelope } from "./transport.ts";
 import {
 	COMS_DIR,
 	KEEPALIVE_INTERVAL_MS,
@@ -217,49 +218,37 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	function connHandler(socket: net.Socket): void {
-		let buf = "";
-		let handled = false;
-		const onData = (chunk: Buffer) => {
-			if (handled) return;
-			buf += chunk.toString("utf-8");
-			if (buf.length > LINE_CAP_BYTES) {
-				handled = true;
-				socket.removeListener("data", onData);
-				nack(socket, "", "malformed envelope");
-				return;
-			}
-			const nl = buf.indexOf("\n");
-			if (nl < 0) return;
-			handled = true;
-			socket.removeListener("data", onData);
-			const line = buf.slice(0, nl);
-			let parsed: any;
-			try {
-				parsed = JSON.parse(line);
-			} catch {
-				nack(socket, "", "malformed envelope");
-				return;
-			}
-			if (!isValidEnvelope(parsed)) {
-				const mid = parsed && typeof parsed.msg_id === "string" ? parsed.msg_id : "";
-				nack(socket, mid, "malformed envelope");
-				return;
-			}
-			try {
-				if (parsed.type === "prompt") {
-					handlePrompt(socket, parsed as PromptEnvelope);
-				} else if (parsed.type === "response") {
-					handleResponse(socket, parsed as ResponseEnvelope);
-				} else if (parsed.type === "ping") {
-					handlePing(socket, parsed as PingEnvelope);
-				} else {
-					nack(socket, parsed.msg_id, "unknown type");
+		void readOneLineCapped(socket, LINE_CAP_BYTES)
+			.then((line) => {
+				let parsed: any;
+				try {
+					parsed = JSON.parse(line);
+				} catch {
+					nack(socket, "", "malformed envelope");
+					return;
 				}
-			} catch {
-				nack(socket, parsed.msg_id, "internal error");
-			}
-		};
-		socket.on("data", onData);
+				if (!isValidEnvelope(parsed)) {
+					const mid = parsed && typeof parsed.msg_id === "string" ? parsed.msg_id : "";
+					nack(socket, mid, "malformed envelope");
+					return;
+				}
+				try {
+					if (parsed.type === "prompt") {
+						handlePrompt(socket, parsed as PromptEnvelope);
+					} else if (parsed.type === "response") {
+						handleResponse(socket, parsed as ResponseEnvelope);
+					} else if (parsed.type === "ping") {
+						handlePing(socket, parsed as PingEnvelope);
+					} else {
+						nack(socket, parsed.msg_id, "unknown type");
+					}
+				} catch {
+					nack(socket, parsed.msg_id, "internal error");
+				}
+			})
+			.catch(() => {
+				nack(socket, "", "malformed envelope");
+			});
 		socket.once("error", () => {
 			try { socket.destroy(); } catch { /* ignore */ }
 		});
@@ -267,14 +256,7 @@ export default function (pi: ExtensionAPI) {
 
 	async function pingPeer(endpoint: string): Promise<AgentCard | null> {
 		if (!identity) return null;
-		const env: PingEnvelope = {
-			type: "ping",
-			msg_id: ulid(),
-			sender_session: identity.session_id,
-			sender_endpoint: identity.endpoint,
-			hops: 0,
-			timestamp: nowIso(),
-		};
+		const env = makePingEnvelope(identity.session_id, identity.endpoint);
 		try {
 			const resp = await sendEnvelope(endpoint, env);
 			if (resp && resp.type === "pong" && resp.agent_card) {
@@ -298,14 +280,7 @@ export default function (pi: ExtensionAPI) {
 		);
 
 		const results = await Promise.allSettled(peers.map(async (peer) => {
-			const pingEnv: PingEnvelope = {
-				type: "ping",
-				msg_id: ulid(),
-				sender_session: identity!.session_id,
-				sender_endpoint: identity!.endpoint,
-				hops: 0,
-				timestamp: nowIso(),
-			};
+			const pingEnv = makePingEnvelope(identity!.session_id, identity!.endpoint);
 			const reply = await sendEnvelope(peer.endpoint, pingEnv);
 			return { peer, pong: reply as Pong };
 		}));
