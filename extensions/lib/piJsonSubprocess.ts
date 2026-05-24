@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolvePiSpawn } from "../powerpackPaths.ts";
-import { buildChildPiArgv, type PiChildOptions } from "./subagentConfig.ts";
+import { buildChildPiArgv, type ChildAgentOptions } from "./childAgentSession.ts";
 
 export type PiJsonEvent = {
 	type: string;
@@ -59,7 +59,7 @@ export function processPiJsonEvent(
 
 export function spawnPiJsonProcess(
 	callerUrl: string,
-	opts: PiChildOptions,
+	opts: ChildAgentOptions,
 	handlers: PiJsonHandlers = {},
 ): Promise<PiJsonRunResult> {
 	const args = buildChildPiArgv(callerUrl, opts);
@@ -128,4 +128,4 @@ export function spawnPiJsonProcess(
 	});
 }
 
-export { buildChildPiArgv, type PiChildOptions };
+export { buildChildPiArgv, type ChildAgentOptions };

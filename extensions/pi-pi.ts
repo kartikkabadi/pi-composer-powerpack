@@ -22,7 +22,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
-import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
+import { spawnChildAgent } from "./lib/childAgentSession.ts";
 import { loadPiPiExperts, displayName } from "./lib/agentDefinitions.ts";
 import { installRawWorkflowGrid } from "./lib/workflowGrid.ts";
 import {
@@ -172,7 +172,7 @@ export default function (pi: ExtensionAPI) {
 		state.queryCount++;
 		updateWidget();
 
-		return runSpecialistSpawn(
+		return spawnChildAgent(
 			import.meta.url,
 			{
 				task: question,

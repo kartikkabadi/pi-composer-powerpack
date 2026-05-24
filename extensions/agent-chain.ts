@@ -30,7 +30,7 @@ import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
-import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
+import { spawnChildAgent } from "./lib/childAgentSession.ts";
 import {
 	scanAgents,
 	loadChainDefinitions,
@@ -306,7 +306,7 @@ ${agentCatalog}
 		const hasSession = agentSessions.get(agentKey);
 		const state = stepStates[stepIndex];
 
-		return runSpecialistSpawn(
+		return spawnChildAgent(
 			import.meta.url,
 			{
 				task,
