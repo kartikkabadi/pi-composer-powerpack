@@ -72,6 +72,7 @@ export function evaluateToolCall(
 ): ToolCallEvaluation {
 	let violationReason: string | null = null;
 	let shouldAsk = false;
+
 	const record = inputRecord(input);
 
 	const checkPaths = (pathsToCheck: string[]) => {
