@@ -23,6 +23,7 @@ import { Text, type AutocompleteItem, truncateToWidth, visibleWidth } from "@ear
 import { readdirSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
+import { installRawWorkflowGrid } from "./lib/workflowGrid.ts";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
 import {
@@ -190,46 +191,17 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	function updateWidget() {
-		if (!widgetCtx) return;
-
-		widgetCtx.ui.setWidget("agent-team", (_tui: any, theme: any) => {
-			const text = new Text("", 0, 1);
-
-			return {
-				render(width: number): string[] {
-					if (agentStates.size === 0) {
-						text.setText(theme.fg("dim", "No agents found. Add .md files to agents/"));
-						return text.render(width);
-					}
-
-					const cols = Math.min(gridCols, agentStates.size);
-					const gap = 1;
-					const colWidth = Math.floor((width - gap * (cols - 1)) / cols);
-					const agents = Array.from(agentStates.values());
-					const rows: string[][] = [];
-
-					for (let i = 0; i < agents.length; i += cols) {
-						const rowAgents = agents.slice(i, i + cols);
-						const cards = rowAgents.map(a => renderCard(a, colWidth, theme));
-
-						while (cards.length < cols) {
-							cards.push(Array(6).fill(" ".repeat(colWidth)));
-						}
-
-						const cardHeight = cards[0].length;
-						for (let line = 0; line < cardHeight; line++) {
-							rows.push(cards.map(card => card[line] || ""));
-						}
-					}
-
-					const output = rows.map(cols => cols.join(" ".repeat(gap)));
-					text.setText(output.join("\n"));
-					return text.render(width);
-				},
-				invalidate() {
-					text.invalidate();
-				},
-			};
+		installRawWorkflowGrid({
+			widgetKey: "agent-team",
+			getUi: () => widgetCtx?.ui ?? null,
+			getItems: () => Array.from(agentStates.values()),
+			getCols: () => gridCols,
+			renderCard: (state, colWidth, theme) => renderCard(state as AgentState, colWidth, theme),
+			emptyLine: (theme) =>
+				(theme as { fg: (c: string, s: string) => string }).fg(
+					"dim",
+					"No agents found. Add .md files to agents/",
+				),
 		});
 	}
 

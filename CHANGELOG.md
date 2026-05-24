@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.11] - 2026-05-25
+
+### Changed
+
+- agent-team dashboard uses shared workflowGrid helpers
+
 ## [0.2.10] - 2026-05-25
 
 ### Changed
