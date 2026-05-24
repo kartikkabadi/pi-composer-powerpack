@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-05-25
+
+### Fixed
+
+- `check:secrets` fails closed when ripgrep is missing
+
+### Changed
+
+- CI installs ripgrep before secret scan
+
 ## [0.1.4] - 2026-05-25
 
 ### Added
