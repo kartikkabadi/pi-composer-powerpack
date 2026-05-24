@@ -22,7 +22,7 @@ import { Type } from "typebox";
 import { Text, type AutocompleteItem, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { readdirSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
+import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
 import {
@@ -269,7 +269,7 @@ export default function (pi: ExtensionAPI) {
 		const agentKey = state.def.name.toLowerCase().replace(/\s+/g, "-");
 		const agentSessionFile = join(sessionDir, `team-${agentKey}.json`);
 
-		return runSpecialistSpawn(
+		return spawnPiJsonProcess(
 			import.meta.url,
 			{
 				task,

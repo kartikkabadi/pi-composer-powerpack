@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-05-25
+
+### Added
+
+- Shared `frontmatter.ts` parser; `loadPiPiExperts(cwd)` with documented precedence
+
+### Changed
+
+- coms and agentDefinitions use shared frontmatter seam
+- pi-pi expert discovery via `loadPiPiExperts`
+- Fix v0.2.2 broken spawn imports (revert to `spawnPiJsonProcess` until v0.2.4)
+
 ## [0.2.2] - 2026-05-25
 
 ### Changed

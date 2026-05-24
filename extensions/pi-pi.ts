@@ -18,12 +18,12 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { readdirSync, readFileSync, existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
-import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
-import { parseAgentMarkdown, displayName } from "./lib/agentDefinitions.ts";
+import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
+import { loadPiPiExperts, displayName } from "./lib/agentDefinitions.ts";
 
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
@@ -76,43 +76,23 @@ export default function (pi: ExtensionAPI) {
 		let allToolNames: string[] = [];
 
 		function loadExperts(cwd: string) {
-			// Pi Pi experts live in their own dedicated directory. Project files
-			// override global and bundled package defaults by name.
-			const packagePiPiDir = join(PACKAGE_AGENTS_DIR, "pi-pi");
-			const projectPiPiDir = join(cwd, ".pi", "agents", "pi-pi");
-			const globalPiPiDir = join(piAgentHome(), "agents", "pi-pi");
-			const dirs = [packagePiPiDir, globalPiPiDir, projectPiPiDir];
-
+			const loaded = loadPiPiExperts(cwd, PACKAGE_AGENTS_DIR);
 			experts.clear();
-
-			for (const piPiDir of dirs) {
-				if (!existsSync(piPiDir)) continue;
-				try {
-					for (const file of readdirSync(piPiDir)) {
-						if (!file.endsWith(".md")) continue;
-						if (file === "pi-orchestrator.md") continue;
-						const fullPath = resolve(piPiDir, file);
-						const def = parseAgentMarkdown(fullPath);
-						if (def) {
-							const expertDef: ExpertDef = {
-								name: def.name,
-								description: def.description,
-								tools: def.tools,
-								systemPrompt: def.systemPrompt,
-								file: def.filePath,
-							};
-							const key = expertDef.name.toLowerCase();
-							experts.set(key, {
-								def: expertDef,
-								status: experts.get(key)?.status ?? "idle",
-								question: experts.get(key)?.question ?? "",
-								elapsed: experts.get(key)?.elapsed ?? 0,
-								lastLine: experts.get(key)?.lastLine ?? "",
-								queryCount: experts.get(key)?.queryCount ?? 0,
-							});
-						}
-					}
-				} catch {}
+			for (const [key, def] of loaded) {
+				experts.set(key, {
+					def: {
+						name: def.name,
+						description: def.description,
+						tools: def.tools,
+						systemPrompt: def.systemPrompt,
+						file: def.filePath,
+					},
+					status: experts.get(key)?.status ?? "idle",
+					question: experts.get(key)?.question ?? "",
+					elapsed: experts.get(key)?.elapsed ?? 0,
+					lastLine: experts.get(key)?.lastLine ?? "",
+					queryCount: experts.get(key)?.queryCount ?? 0,
+				});
 			}
 		}
 
@@ -251,7 +231,7 @@ export default function (pi: ExtensionAPI) {
 		state.queryCount++;
 		updateWidget();
 
-		return runSpecialistSpawn(
+		return spawnPiJsonProcess(
 			import.meta.url,
 			{
 				task: question,

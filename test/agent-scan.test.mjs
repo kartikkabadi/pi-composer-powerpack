@@ -17,6 +17,26 @@ test("scanAgents finds pi-pi subdirectory experts", async () => {
 	assert.ok(agents.has("scout"), "top-level scout agent should be discoverable");
 });
 
+test("parseMarkdownFrontmatter extracts fields and body", async () => {
+	const { parseMarkdownFrontmatter } = await import(
+		join(repoRoot, "extensions", "lib", "frontmatter.ts")
+	);
+	const raw = `---\nname: test-expert\ndescription: A test\ntools: read\n---\n\nBody here.\n`;
+	const { fields, body } = parseMarkdownFrontmatter(raw);
+	assert.equal(fields.name, "test-expert");
+	assert.equal(fields.tools, "read");
+	assert.match(body, /Body here/);
+});
+
+test("loadPiPiExperts resolves bundled experts with project override precedence", async () => {
+	const { loadPiPiExperts } = await import(
+		join(repoRoot, "extensions", "lib", "agentDefinitions.ts")
+	);
+	const experts = loadPiPiExperts(repoRoot, join(repoRoot, "agents"));
+	assert.ok(experts.has("cli-expert"));
+	assert.ok(experts.has("ext-expert"));
+});
+
 test("loadTeamsYaml parses pi-pi team", async () => {
 	const { loadTeamsYaml } = await import(join(repoRoot, "extensions", "lib", "agentDefinitions.ts"));
 	const { readFileSync } = await import("node:fs");

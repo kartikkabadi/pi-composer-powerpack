@@ -2,7 +2,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { COMS_DIR, FALLBACK_PALETTE, type CliFlags, type Envelope } from "./types.ts";
+import { parseMarkdownFrontmatter } from "../lib/frontmatter.ts";
+import { COMS_DIR, FALLBACK_PALETTE, type CliFlags, type Envelope, type PingEnvelope } from "./types.ts";
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
@@ -46,25 +47,12 @@ export function fallbackColor(sessionId: string): string {
 }
 
 export function parseFrontmatter(raw: string): { name?: string; description?: string; color?: string; body: string } {
-	const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-	if (!match) return { body: raw };
-	const frontmatter: Record<string, string> = {};
-	for (const line of match[1].split("\n")) {
-		const idx = line.indexOf(":");
-		if (idx > 0) {
-			const key = line.slice(0, idx).trim();
-			let val = line.slice(idx + 1).trim();
-			if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-				val = val.slice(1, -1);
-			}
-			frontmatter[key] = val;
-		}
-	}
+	const { fields, body } = parseMarkdownFrontmatter(raw);
 	return {
-		name: frontmatter.name,
-		description: frontmatter.description,
-		color: frontmatter.color,
-		body: match[2],
+		name: fields.name,
+		description: fields.description,
+		color: fields.color,
+		body,
 	};
 }
 
@@ -77,6 +65,17 @@ export function makeEndpoint(sessionId: string): string {
 
 export function nowIso(): string {
 	return new Date().toISOString();
+}
+
+export function makePingEnvelope(senderSession: string, senderEndpoint: string): PingEnvelope {
+	return {
+		type: "ping",
+		msg_id: ulid(),
+		sender_session: senderSession,
+		sender_endpoint: senderEndpoint,
+		hops: 0,
+		timestamp: nowIso(),
+	};
 }
 
 export function abbreviateModel(model: string): string {
