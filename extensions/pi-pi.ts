@@ -22,7 +22,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
-import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
+import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
 import { loadPiPiExperts, displayName } from "./lib/agentDefinitions.ts";
 
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
@@ -231,7 +231,7 @@ export default function (pi: ExtensionAPI) {
 		state.queryCount++;
 		updateWidget();
 
-		return spawnPiJsonProcess(
+		return runSpecialistSpawn(
 			import.meta.url,
 			{
 				task: question,
