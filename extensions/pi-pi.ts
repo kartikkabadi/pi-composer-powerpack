@@ -18,16 +18,13 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { spawn } from "node:child_process";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
-import { powerpackAgentsDir, powerpackCursorSdkExtension, resolvePiBinary } from "./powerpackPaths.ts";
+import { powerpackAgentsDir } from "./powerpackPaths.ts";
+import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
 
 const PI_AGENT_HOME = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME || "", ".pi", "agent");
-const CURSOR_MODEL = process.env.PI_SUBAGENT_MODEL || "cursor/composer-2.5";
-const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || powerpackCursorSdkExtension(import.meta.url);
-const CURSOR_FAST_FLAGS = process.env.PI_SUBAGENT_CURSOR_FAST === "0" ? [] : ["--cursor-fast"];
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
 // ── Types ────────────────────────────────────────
@@ -279,106 +276,35 @@ export default function (pi: ExtensionAPI) {
 		state.queryCount++;
 		updateWidget();
 
-		const startTime = Date.now();
-		state.timer = setInterval(() => {
-			state.elapsed = Date.now() - startTime;
+		return spawnPiJsonProcess(
+			import.meta.url,
+			{
+				task: question,
+				tools: state.def.tools,
+				systemPrompt: state.def.systemPrompt,
+				ephemeral: true,
+			},
+			{
+				onTextDelta: (_delta, _full, lastLine) => {
+					state.lastLine = lastLine;
+					updateWidget();
+				},
+				onTick: (elapsed) => {
+					state.elapsed = elapsed;
+					updateWidget();
+				},
+			},
+		).then(({ output, exitCode, elapsed }) => {
+			if (state.timer) clearInterval(state.timer);
+			state.elapsed = elapsed;
+			state.status = exitCode === 0 ? "done" : "error";
+			state.lastLine = output.split("\n").filter((l: string) => l.trim()).pop() || "";
 			updateWidget();
-		}, 1000);
-
-		const model = CURSOR_MODEL;
-
-		const args = [
-			"--mode", "json",
-			"-p",
-			"--no-session",
-			"--no-extensions",
-			"--extension", CURSOR_SDK_EXTENSION,
-			...CURSOR_FAST_FLAGS,
-			"--model", model,
-			"--tools", state.def.tools,
-			"--thinking", "off",
-			"--append-system-prompt", state.def.systemPrompt,
-			question,
-		];
-
-		const textChunks: string[] = [];
-
-		return new Promise((resolve) => {
-				const proc = spawn(resolvePiBinary(), args, {
-				stdio: ["ignore", "pipe", "pipe"],
-				env: { ...process.env },
-			});
-
-			let buffer = "";
-
-			proc.stdout!.setEncoding("utf-8");
-			proc.stdout!.on("data", (chunk: string) => {
-				buffer += chunk;
-				const lines = buffer.split("\n");
-				buffer = lines.pop() || "";
-				for (const line of lines) {
-					if (!line.trim()) continue;
-					try {
-						const event = JSON.parse(line);
-						if (event.type === "message_update") {
-							const delta = event.assistantMessageEvent;
-							if (delta?.type === "text_delta") {
-								textChunks.push(delta.delta || "");
-								const full = textChunks.join("");
-								const last = full.split("\n").filter((l: string) => l.trim()).pop() || "";
-								state.lastLine = last;
-								updateWidget();
-							}
-						}
-					} catch {}
-				}
-			});
-
-			proc.stderr!.setEncoding("utf-8");
-			proc.stderr!.on("data", () => {});
-
-			proc.on("close", (code) => {
-				if (buffer.trim()) {
-					try {
-						const event = JSON.parse(buffer);
-						if (event.type === "message_update") {
-							const delta = event.assistantMessageEvent;
-							if (delta?.type === "text_delta") textChunks.push(delta.delta || "");
-						}
-					} catch {}
-				}
-
-				clearInterval(state.timer);
-				state.elapsed = Date.now() - startTime;
-				state.status = code === 0 ? "done" : "error";
-
-				const full = textChunks.join("");
-				state.lastLine = full.split("\n").filter((l: string) => l.trim()).pop() || "";
-				updateWidget();
-
-				ctx.ui.notify(
-					`${displayName(state.def.name)} ${state.status} in ${Math.round(state.elapsed / 1000)}s`,
-					state.status === "done" ? "info" : "error"
-				);
-
-				resolve({
-					output: full,
-					exitCode: code ?? 1,
-					elapsed: state.elapsed,
-				});
-			});
-
-			proc.on("error", (err) => {
-				clearInterval(state.timer);
-				state.status = "error";
-				state.lastLine = `Error: ${err.message}`;
-				updateWidget();
-				resolve({
-					output: `Error spawning expert: ${err.message}`,
-					exitCode: 1,
-					elapsed: Date.now() - startTime,
-				});
-			});
+			ctx.ui.notify(
+				`${displayName(state.def.name)} ${state.status} in ${Math.round(state.elapsed / 1000)}s`,
+				state.status === "done" ? "info" : "error",
+			);
+			return { output, exitCode, elapsed: state.elapsed };
 		});
 	}
 
@@ -674,7 +600,7 @@ Ask specific questions about what you need to BUILD. Each expert will return doc
 				.replace("{{EXPERT_COUNT}}", experts.size.toString())
 				.replace("{{EXPERT_NAMES}}", expertNames)
 				.replace("{{EXPERT_CATALOG}}", expertCatalog);
-		} catch (err) {
+		} catch {
 			systemPrompt = "Error: Could not load pi-orchestrator.md. Make sure it exists in .pi/agents/pi-pi/.";
 		}
 

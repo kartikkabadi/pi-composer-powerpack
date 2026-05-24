@@ -30,3 +30,12 @@ export function resolvePiBinary(): string {
 	const localPi = join(homedir(), ".local", "bin", "pi");
 	return existsSync(localPi) ? localPi : "pi";
 }
+
+/** When PI_POWERPACK_PI points at a .mjs/.js script, spawn via node. */
+export function resolvePiSpawn(): { command: string; prefixArgs: string[] } {
+	const configured = process.env.PI_POWERPACK_PI || process.env.PI_BIN;
+	if (configured && (configured.endsWith(".mjs") || configured.endsWith(".js"))) {
+		return { command: process.execPath, prefixArgs: [configured] };
+	}
+	return { command: resolvePiBinary(), prefixArgs: [] };
+}

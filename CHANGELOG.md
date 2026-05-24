@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-05-25
+
+### Added
+
+- Shared subprocess modules (`subagentConfig`, `piJsonSubprocess`)
+
+### Changed
+
+- Migrated subagent-widget and pi-pi expert spawns to shared NDJSON runner
+- Child damage-control is opt-in (`PI_SUBAGENT_DAMAGE_CONTROL=1`) until v0.2.0
+
 ## [0.1.7] - 2026-05-25
 
 ### Added

@@ -16,15 +16,11 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 import { Container, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
 import { applyExtensionDefaults } from "./themeMap.ts";
-import { piAgentHome, powerpackCursorSdkExtension, resolvePiBinary } from "./powerpackPaths.ts";
-
-const CURSOR_MODEL = process.env.PI_SUBAGENT_MODEL || "cursor/composer-2.5";
-const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || powerpackCursorSdkExtension(import.meta.url);
-const CURSOR_FAST_FLAGS = process.env.PI_SUBAGENT_CURSOR_FAST === "0" ? [] : ["--cursor-fast"];
+import { piAgentHome } from "./powerpackPaths.ts";
 
 interface SubState {
 	id: number;
@@ -114,106 +110,58 @@ export default function (pi: ExtensionAPI) {
 
 	// ── Streaming helpers ─────────────────────────────────────────────────────
 
-	function processLine(state: SubState, line: string) {
-		if (!line.trim()) return;
-		try {
-			const event = JSON.parse(line);
-			const type = event.type;
-
-			if (type === "message_update") {
-				const delta = event.assistantMessageEvent;
-				if (delta?.type === "text_delta") {
-					state.textChunks.push(delta.delta || "");
-					updateWidgets();
-				}
-			} else if (type === "tool_execution_start") {
-				state.toolCount++;
-				updateWidgets();
-			}
-		} catch {}
-	}
-
 	function spawnAgent(
 		state: SubState,
 		prompt: string,
 		ctx: any,
 	): Promise<void> {
-		const model = CURSOR_MODEL;
-
-		return new Promise<void>((resolve) => {
-			const proc = spawn(resolvePiBinary(), [
-				"--mode", "json",
-				"-p",
-				"--session", state.sessionFile,   // persistent session for /subcont resumption
-				"--no-extensions",
-				"--extension", CURSOR_SDK_EXTENSION,
-				...CURSOR_FAST_FLAGS,
-				"--model", model,
-				"--tools", "read,bash,grep,find,ls",
-				"--thinking", "off",
-				prompt,
-			], {
-				stdio: ["ignore", "pipe", "pipe"],
-				env: { ...process.env },
-			});
-
-			state.proc = proc;
-
-			const startTime = Date.now();
-			const timer = setInterval(() => {
-				state.elapsed = Date.now() - startTime;
-				updateWidgets();
-			}, 1000);
-
-			let buffer = "";
-
-			proc.stdout!.setEncoding("utf-8");
-			proc.stdout!.on("data", (chunk: string) => {
-				buffer += chunk;
-				const lines = buffer.split("\n");
-				buffer = lines.pop() || "";
-				for (const line of lines) processLine(state, line);
-			});
-
-			proc.stderr!.setEncoding("utf-8");
-			proc.stderr!.on("data", (chunk: string) => {
-				if (chunk.trim()) {
-					state.textChunks.push(chunk);
+		state.textChunks = [];
+		return spawnPiJsonProcess(
+			import.meta.url,
+			{
+				task: prompt,
+				tools: "read,bash,grep,find,ls",
+				sessionFile: state.sessionFile,
+			},
+			{
+				onSpawn: (proc) => {
+					state.proc = proc;
+				},
+				onTextDelta: (delta) => {
+					state.textChunks.push(delta);
 					updateWidgets();
-				}
-			});
+				},
+				onToolStart: () => {
+					state.toolCount++;
+					updateWidgets();
+				},
+				onTick: (elapsed) => {
+					state.elapsed = elapsed;
+					updateWidgets();
+				},
+			},
+		).then(({ output, exitCode, elapsed }) => {
+			state.elapsed = elapsed;
+			state.status = exitCode === 0 ? "done" : "error";
+			state.proc = undefined;
+			updateWidgets();
 
-			proc.on("close", (code) => {
-				if (buffer.trim()) processLine(state, buffer);
-				clearInterval(timer);
-				state.elapsed = Date.now() - startTime;
-				state.status = code === 0 ? "done" : "error";
-				state.proc = undefined;
-				updateWidgets();
+			const result = state.textChunks.join("") || output;
+			ctx.ui.notify(
+				`Subagent #${state.id} ${state.status} in ${Math.round(state.elapsed / 1000)}s`,
+				state.status === "done" ? "info" : "error",
+			);
 
-				const result = state.textChunks.join("");
-				ctx.ui.notify(
-					`Subagent #${state.id} ${state.status} in ${Math.round(state.elapsed / 1000)}s`,
-					state.status === "done" ? "info" : "error"
+			if (state.status === "done") {
+				pi.sendMessage(
+					{
+						customType: "subagent-result",
+						content: `Subagent #${state.id}${state.turnCount > 1 ? ` (Turn ${state.turnCount})` : ""} finished "${prompt}" in ${Math.round(state.elapsed / 1000)}s.\n\nResult:\n${result.slice(0, 8000)}${result.length > 8000 ? "\n\n... [truncated]" : ""}`,
+						display: true,
+					},
+					{ deliverAs: "followUp", triggerTurn: true },
 				);
-
-				pi.sendMessage({
-					customType: "subagent-result",
-					content: `Subagent #${state.id}${state.turnCount > 1 ? ` (Turn ${state.turnCount})` : ""} finished "${prompt}" in ${Math.round(state.elapsed / 1000)}s.\n\nResult:\n${result.slice(0, 8000)}${result.length > 8000 ? "\n\n... [truncated]" : ""}`,
-					display: true,
-				}, { deliverAs: "followUp", triggerTurn: true });
-
-				resolve();
-			});
-
-			proc.on("error", (err) => {
-				clearInterval(timer);
-				state.status = "error";
-				state.proc = undefined;
-				state.textChunks.push(`Error: ${err.message}`);
-				updateWidgets();
-				resolve();
-			});
+			}
 		});
 	}
 
