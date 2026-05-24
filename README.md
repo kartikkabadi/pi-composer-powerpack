@@ -12,6 +12,31 @@ This package bundles the pieces I use to make Pi behave like a fast Composer-bac
 - chain/team/Pi-Pi specialist workflows
 - curated agents, chains, teams, and the `mono-black` theme
 
+## This Repo Is a Guide + Curated Assets (Feed It to Your Agent)
+
+**Not a script you run.** This is a guide and a whole Git repo of things you can do with a polished Pi + Cursor Composer 2.5 + multi-agent setup (launchers, extensions for coms/damage-control/agents/chains/teams, prompts, mono-black theme, install.sh, config, etc.).
+
+**Feed the whole repo (or this README + key dirs like agents/, extensions/, bin/) to your agent and say:**
+
+"Hey, look at this Pi Extension Pack repo. Use it to set up a polished Pi + Composer 2.5 experience for me. Ask me these questions first (the 10 coverage slots from the Foundry spec):
+
+1. User / beneficiary  
+2. Current pain or job-to-be-done  
+3. Desired outcome  
+4. Minimum useful version  
+5. Non-goals / what to delete  
+6. Reference products / desired feel  
+7. Constraints  
+8. Quality bar / done proof  
+9. Risk / unacceptable failure  
+10. Autonomy / execution preference  
+
+Then walk me through the copy-paste setup using the assets here (install.sh, launchers in bin/, extensions/, agents/ prompts, theme, config/damage-control-rules.yaml). Help me choose what I want and set everything up safely (Pi >=0.75.3, pi-cursor-sdk, etc.)."
+
+The agent should walk the user through the intent questions first (product-boundary, not low-level impl), then the guide steps, using the curated assets in this repo as the source of truth for the polished experience.
+
+**Cross-link**: For the rock-solid, detailed, actual multi-agent planning/build runtime (doctor/setup/plan/build with Composer 2.5 exclusive, artifacts, autonomy contracts, etc.) that sits on top of this Pi Extension Pack setup, see the sibling **Foundry** repo: https://github.com/kartikkabadi/foundry (and its V1 planning docs). Both repos are active, cross-linked, and aligned per the 2026-05 clarification (powerpack = the guide layer; Foundry = the higher-level runtime).
+
 ## Install
 
 Prerequisites:
