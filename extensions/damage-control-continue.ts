@@ -37,6 +37,30 @@ interface Rules {
 const SECRET_PATTERN =
 	/(api[_-]?key|token|secret|password|bearer|sk-[a-zA-Z0-9]+)\s*[:=]\s*\S+/gi;
 
+export function redactInvocation(toolName: string, input: unknown): string {
+	if (process.env.PI_DAMAGE_CONTROL_LOG_RAW === "1") {
+		if (
+			toolName === "bash" &&
+			input &&
+			typeof input === "object" &&
+			typeof (input as { command?: unknown }).command === "string"
+		) {
+			return (input as { command: string }).command;
+		}
+		return JSON.stringify(input);
+	}
+	const sanitized = sanitizeToolInput(toolName, input);
+	if (
+		toolName === "bash" &&
+		sanitized &&
+		typeof sanitized === "object" &&
+		typeof (sanitized as { command?: unknown }).command === "string"
+	) {
+		return (sanitized as { command: string }).command;
+	}
+	return JSON.stringify(sanitized);
+}
+
 function sanitizeToolInput(_toolName: string, input: unknown): unknown {
 	if (process.env.PI_DAMAGE_CONTROL_LOG_RAW === "1") {
 		return input;
@@ -253,7 +277,7 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		if (violationReason) {
-			const invocation = isToolCallEventType("bash", event) ? event.input.command : JSON.stringify(event.input);
+			const invocation = redactInvocation(event.toolName, event.input);
 
 			if (shouldAsk) {
 				const confirmed = await ctx.ui.confirm(
