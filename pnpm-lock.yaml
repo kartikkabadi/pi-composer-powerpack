@@ -20,12 +20,24 @@ importers:
         specifier: 2.9.0
         version: 2.9.0
     devDependencies:
+      '@earendil-works/pi-ai':
+        specifier: 0.75.5
+        version: 0.75.5(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
+        specifier: 0.75.4
+        version: 0.75.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
+        specifier: 0.75.4
+        version: 0.75.4
       '@eslint/js':
         specifier: ^9.39.1
         version: 9.39.4
       eslint:
         specifier: ^10.4.0
         version: 10.4.0(jiti@2.7.0)
+      typebox:
+        specifier: 1.1.38
+        version: 1.1.38
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

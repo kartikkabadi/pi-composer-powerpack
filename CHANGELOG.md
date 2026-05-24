@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-05-25
+
+### Added
+
+- Explicit peer dependency contract for Pi runtime packages (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`)
+
+### Changed
+
+- Aligned TypeBox imports to `typebox@1.1.38`
+
 ## [0.1.2] - 2026-05-24
 
 ### Added

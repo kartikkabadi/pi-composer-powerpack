@@ -17,7 +17,7 @@ import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-c
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 import { Text, Container, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { AutocompleteItem } from "@earendil-works/pi-tui";
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import * as net from "node:net";
 import * as fs from "node:fs";
