@@ -20,37 +20,29 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import {
 	fallbackColor,
-	isValidEnvelope,
 	isValidHex,
 	makeEndpoint,
 	nowIso,
 	readCliFlags,
 	readFrontmatterFromArgv,
-	makePingEnvelope,
 	ulid,
 } from "./protocol.ts";
+import { ComsRuntime } from "./runtime.ts";
 import {
-	pruneDeadEntries,
-	pruneDeadEntriesAllProjects,
 	removeRegistryEntry,
 	resolveUniqueName,
 	writeRegistryAtomic,
 } from "./registry.ts";
 import { registerComsTools } from "./tools.ts";
-import { bindEndpoint, readOneLineCapped, sendEnvelope } from "./transport.ts";
+import { bindEndpoint, sendEnvelope } from "./transport.ts";
 import {
 	COMS_DIR,
 	KEEPALIVE_INTERVAL_MS,
-	LINE_CAP_BYTES,
-	MAX_HOPS,
 	PING_INTERVAL_MS,
 	type AgentCard,
 	type ComsIdentity,
 	type InboundContext,
 	type PendingReply,
-	type PingEnvelope,
-	type Pong,
-	type PromptEnvelope,
 	type RegistryEntry,
 	type ResponseEnvelope,
 } from "./types.ts";
@@ -104,218 +96,24 @@ export default function (pi: ExtensionAPI) {
 	};
 	const renderPool = createRenderPool(poolDeps);
 
-	function ackOk(socket: net.Socket, msg_id: string): void {
-		try {
-			socket.write(JSON.stringify({ type: "ack", msg_id }) + "\n");
-		} catch {
-			// ignore
-		}
-		try { socket.end(); } catch { /* ignore */ }
-	}
+	const comsRuntime = new ComsRuntime({
+		pi,
+		getIdentity: () => identity,
+		setCurrentInbound: (ctx) => {
+			currentInbound = ctx;
+		},
+		getCurrentCtx: () => currentCtx,
+		inboundQueue,
+		pendingReplies,
+		peerCards,
+		getDisplayProject: () => displayProject,
+		getIncludeExplicit: () => includeExplicit,
+		renderPool,
+	});
 
-	function nack(socket: net.Socket, msg_id: string, error: string): void {
-		try {
-			socket.write(JSON.stringify({ type: "nack", msg_id, error }) + "\n");
-		} catch {
-			// ignore
-		}
-		try { socket.end(); } catch { /* ignore */ }
-	}
-
-	function handlePrompt(socket: net.Socket, env: PromptEnvelope): void {
-		if (typeof env.hops !== "number" || env.hops >= MAX_HOPS) {
-			nack(socket, env.msg_id, "hops exceeded");
-			return;
-		}
-
-		const inbound: InboundContext = {
-			msg_id: env.msg_id,
-			hops: env.hops,
-			sender_endpoint: env.sender_endpoint,
-			sender_session: env.sender_session,
-			response_schema: env.response_schema ?? null,
-			fulfilled: false,
-		};
-		inboundQueue.set(env.msg_id, inbound);
-		currentInbound = inbound;
-
-		try {
-			pi.sendMessage(
-				{
-					customType: "coms-inbound",
-					content: `[from ${env.sender_name} @ ${env.sender_cwd}]\n\n${env.prompt}`,
-					display: true,
-					details: {
-						msg_id: env.msg_id,
-						sender_session: env.sender_session,
-						response_schema: env.response_schema ?? null,
-					},
-				},
-				{ deliverAs: "followUp", triggerTurn: true },
-			);
-		} catch {
-			inboundQueue.delete(env.msg_id);
-			currentInbound = null;
-			nack(socket, env.msg_id, "internal error");
-			return;
-		}
-
-		ackOk(socket, env.msg_id);
-		try {
-			pi.appendEntry("coms-log", {
-				event: "inbound_prompt",
-				msg_id: env.msg_id,
-				sender: env.sender_session,
-				hops: env.hops,
-			});
-		} catch {
-			// best-effort
-		}
-	}
-
-	function handleResponse(socket: net.Socket, env: ResponseEnvelope): void {
-		const pending = pendingReplies.get(env.msg_id);
-		if (pending) {
-			if (pending.timer) {
-				try { clearTimeout(pending.timer); } catch { /* ignore */ }
-				pending.timer = null;
-			}
-			pending.result = { response: env.response, error: env.error ?? null };
-			try {
-				pending.resolve(pending.result);
-			} catch {
-				// ignore
-			}
-		} else {
-			try {
-				pi.appendEntry("coms-log", { event: "orphan_response", msg_id: env.msg_id });
-			} catch {
-				// best-effort
-			}
-		}
-		ackOk(socket, env.msg_id);
-	}
-
-	function handlePing(socket: net.Socket, env: PingEnvelope): void {
-		const ctx = currentCtx;
-		const ident = identity;
-		const pct = ctx ? Math.round(ctx.getContextUsage()?.percent ?? 0) : 0;
-		const card: AgentCard = {
-			name: ident?.name ?? "unknown",
-			purpose: ident?.purpose ?? "",
-			model: ctx?.model?.id ?? ident?.model ?? "unknown",
-			color: ident?.color ?? "#36F9F6",
-			context_used_pct: pct,
-			queue_depth: inboundQueue.size,
-		};
-		const pong: Pong = { type: "pong", msg_id: env.msg_id, agent_card: card };
-		try {
-			socket.write(JSON.stringify(pong) + "\n");
-		} catch {
-			// ignore
-		}
-		try { socket.end(); } catch { /* ignore */ }
-	}
-
-	function connHandler(socket: net.Socket): void {
-		void readOneLineCapped(socket, LINE_CAP_BYTES)
-			.then((line) => {
-				let parsed: any;
-				try {
-					parsed = JSON.parse(line);
-				} catch {
-					nack(socket, "", "malformed envelope");
-					return;
-				}
-				if (!isValidEnvelope(parsed)) {
-					const mid = parsed && typeof parsed.msg_id === "string" ? parsed.msg_id : "";
-					nack(socket, mid, "malformed envelope");
-					return;
-				}
-				try {
-					if (parsed.type === "prompt") {
-						handlePrompt(socket, parsed as PromptEnvelope);
-					} else if (parsed.type === "response") {
-						handleResponse(socket, parsed as ResponseEnvelope);
-					} else if (parsed.type === "ping") {
-						handlePing(socket, parsed as PingEnvelope);
-					} else {
-						nack(socket, parsed.msg_id, "unknown type");
-					}
-				} catch {
-					nack(socket, parsed.msg_id, "internal error");
-				}
-			})
-			.catch(() => {
-				nack(socket, "", "malformed envelope");
-			});
-		socket.once("error", () => {
-			try { socket.destroy(); } catch { /* ignore */ }
-		});
-	}
-
-	async function pingPeer(endpoint: string): Promise<AgentCard | null> {
-		if (!identity) return null;
-		const env = makePingEnvelope(identity.session_id, identity.endpoint);
-		try {
-			const resp = await sendEnvelope(endpoint, env);
-			if (resp && resp.type === "pong" && resp.agent_card) {
-				return resp.agent_card as AgentCard;
-			}
-		} catch {
-			// ignore — peer unreachable
-		}
-		return null;
-	}
-
-	async function refreshPool(): Promise<void> {
-		if (!identity) return;
-		const projectFilter = displayProject ?? identity.project;
-		const live = projectFilter === "*"
-			? pruneDeadEntriesAllProjects()
-			: pruneDeadEntries(projectFilter);
-
-		const peers = live.filter((e) =>
-			e.session_id !== identity!.session_id && (includeExplicit || !e.explicit),
-		);
-
-		const results = await Promise.allSettled(peers.map(async (peer) => {
-			const pingEnv = makePingEnvelope(identity!.session_id, identity!.endpoint);
-			const reply = await sendEnvelope(peer.endpoint, pingEnv);
-			return { peer, pong: reply as Pong };
-		}));
-
-		const seenSessions = new Set<string>();
-		let changed = false;
-
-		for (const r of results) {
-			if (r.status === "fulfilled" && r.value.pong && r.value.pong.agent_card) {
-				const { peer, pong } = r.value;
-				seenSessions.add(peer.session_id);
-				const prev = peerCards.get(peer.session_id);
-				const next = { ...pong.agent_card, staleCount: 0 };
-				if (!prev || JSON.stringify({ ...prev, staleCount: 0 }) !== JSON.stringify(next)) {
-					peerCards.set(peer.session_id, next);
-					changed = true;
-				}
-			}
-		}
-
-		for (const [sid, card] of peerCards.entries()) {
-			if (identity && sid === identity.session_id) continue;
-			if (!seenSessions.has(sid)) {
-				card.staleCount = (card.staleCount ?? 0) + 1;
-				if (card.staleCount > 6) {
-					peerCards.delete(sid);
-				}
-				changed = true;
-			}
-		}
-
-		if (changed && currentCtx?.hasUI) {
-			installPoolWidget(currentCtx, renderPool);
-		}
-	}
+	const connHandler = (socket: net.Socket) => comsRuntime.connHandler(socket);
+	const pingPeer = (endpoint: string) => comsRuntime.pingPeer(endpoint);
+	const refreshPool = () => comsRuntime.refreshPool();
 
 	registerComsTools(pi, {
 		getIdentity: () => identity,
