@@ -12,6 +12,24 @@ This package bundles the pieces I use to make Pi behave like a fast Composer-bac
 - chain/team/Pi-Pi specialist workflows
 - curated agents, chains, teams, and the `mono-black` theme (all activated via the GitHub `pi install` path)
 
+**Copy this prompt for your agent (select the entire block below → Copy):**
+
+```text
+Use https://github.com/kartikkabadi/pi-composer-powerpack as the complete premium agent-feedable guide for a polished Pi + Cursor Composer 2.5 + multi-agent experience.
+
+This repo is **not a script you run** — it is the source of truth containing:
+- Launchers (pi-elite, pi-team, pi-chain, pi-pi-lab) in bin/
+- Extensions (coms, damage-control-continue, subagent-widget, cursor-sdk integration) in extensions/
+- Curated agents, prompts, chains, teams in agents/
+- mono-black theme and config
+- All activated primarily via the GitHub Pi installer
+
+Primary setup (after pi-cursor-sdk):
+pi install https://github.com/kartikkabadi/pi-composer-powerpack
+
+Ask the user the 10 intent questions first, then walk them through safe activation and usage of the launchers, extensions, agents/prompts, and theme from this exact repo. Cross-reference https://github.com/kartikkabadi/foundry for the higher-level planning/build runtime when relevant. Use only assets from this pack.
+```
+
 ## This Repo Is a Guide + Curated Assets (Feed It to Your Agent)
 
 **Not a script you run.** This is a guide and a whole Git repo of things you can do with a polished Pi + Cursor Composer 2.5 + multi-agent setup (launchers, extensions for coms/damage-control/agents/chains/teams, prompts, mono-black theme, install.sh, config, etc.).
