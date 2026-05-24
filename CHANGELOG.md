@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-05-25
+
+### Added
+
+- `agentDefinitions` shared library; replaced hand-rolled YAML parsers
+- Stub-pi harness and subprocess/scan tests
+
+### Changed
+
+- Migrated agent-chain and agent-team spawns to `spawnPiJsonProcess`
+
 ## [0.1.8] - 2026-05-25
 
 ### Added

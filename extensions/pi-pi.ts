@@ -23,6 +23,7 @@ import { join, resolve } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { powerpackAgentsDir } from "./powerpackPaths.ts";
 import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
+import { parseAgentMarkdown, displayName } from "./lib/agentDefinitions.ts";
 
 const PI_AGENT_HOME = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME || "", ".pi", "agent");
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
@@ -48,38 +49,6 @@ interface ExpertState {
 }
 
 // ── Helpers ──────────────────────────────────────
-
-function displayName(name: string): string {
-	return name.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-}
-
-function parseAgentFile(filePath: string): ExpertDef | null {
-	try {
-		const raw = readFileSync(filePath, "utf-8");
-		const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-		if (!match) return null;
-
-		const frontmatter: Record<string, string> = {};
-		for (const line of match[1].split("\n")) {
-			const idx = line.indexOf(":");
-			if (idx > 0) {
-				frontmatter[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-			}
-		}
-
-		if (!frontmatter.name) return null;
-
-		return {
-			name: frontmatter.name,
-			description: frontmatter.description || "",
-			tools: frontmatter.tools || "read,grep,find,ls",
-			systemPrompt: match[2].trim(),
-			file: filePath,
-		};
-	} catch {
-		return null;
-	}
-}
 
 // ── Expert card colors ────────────────────────────
 // Each expert gets a unique hue: bg fills the card interior,
@@ -124,11 +93,18 @@ export default function (pi: ExtensionAPI) {
 						if (!file.endsWith(".md")) continue;
 						if (file === "pi-orchestrator.md") continue;
 						const fullPath = resolve(piPiDir, file);
-						const def = parseAgentFile(fullPath);
+						const def = parseAgentMarkdown(fullPath);
 						if (def) {
-							const key = def.name.toLowerCase();
+							const expertDef: ExpertDef = {
+								name: def.name,
+								description: def.description,
+								tools: def.tools,
+								systemPrompt: def.systemPrompt,
+								file: def.filePath,
+							};
+							const key = expertDef.name.toLowerCase();
 							experts.set(key, {
-								def,
+								def: expertDef,
 								status: experts.get(key)?.status ?? "idle",
 								question: experts.get(key)?.question ?? "",
 								elapsed: experts.get(key)?.elapsed ?? 0,

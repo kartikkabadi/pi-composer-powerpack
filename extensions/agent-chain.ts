@@ -26,190 +26,28 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { spawn } from "node:child_process";
 import { readFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
-import { powerpackAgentsDir, powerpackCursorSdkExtension, resolvePiBinary } from "./powerpackPaths.ts";
+import { powerpackAgentsDir } from "./powerpackPaths.ts";
+import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
+import {
+	scanAgents,
+	loadChainDefinitions,
+	mergeChains,
+	displayName,
+	type AgentDef,
+	type ChainDef,
+} from "./lib/agentDefinitions.ts";
 
 const PI_AGENT_HOME = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME || "", ".pi", "agent");
-const CURSOR_MODEL = process.env.PI_SUBAGENT_MODEL || "cursor/composer-2.5";
-const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || powerpackCursorSdkExtension(import.meta.url);
-const CURSOR_FAST_FLAGS = process.env.PI_SUBAGENT_CURSOR_FAST === "0" ? [] : ["--cursor-fast"];
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
-
-// ── Types ────────────────────────────────────────
-
-interface ChainStep {
-	agent: string;
-	prompt: string;
-}
-
-interface ChainDef {
-	name: string;
-	description: string;
-	steps: ChainStep[];
-}
-
-interface AgentDef {
-	name: string;
-	description: string;
-	tools: string;
-	systemPrompt: string;
-}
 
 interface StepState {
 	agent: string;
 	status: "pending" | "running" | "done" | "error";
 	elapsed: number;
 	lastWork: string;
-}
-
-// ── Display Name Helper ──────────────────────────
-
-function displayName(name: string): string {
-	return name.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-}
-
-// ── Chain YAML Parser ────────────────────────────
-
-function parseChainYaml(raw: string): ChainDef[] {
-	const chains: ChainDef[] = [];
-	let current: ChainDef | null = null;
-	let currentStep: ChainStep | null = null;
-
-	for (const line of raw.split("\n")) {
-		// Chain name: top-level key
-		const chainMatch = line.match(/^(\S[^:]*):$/);
-		if (chainMatch) {
-			if (current && currentStep) {
-				current.steps.push(currentStep);
-				currentStep = null;
-			}
-			current = { name: chainMatch[1].trim(), description: "", steps: [] };
-			chains.push(current);
-			continue;
-		}
-
-		// Chain description
-		const descMatch = line.match(/^\s+description:\s+(.+)$/);
-		if (descMatch && current && !currentStep) {
-			let desc = descMatch[1].trim();
-			if ((desc.startsWith('"') && desc.endsWith('"')) ||
-				(desc.startsWith("'") && desc.endsWith("'"))) {
-				desc = desc.slice(1, -1);
-			}
-			current.description = desc;
-			continue;
-		}
-
-		// "steps:" label — skip
-		if (line.match(/^\s+steps:\s*$/) && current) {
-			continue;
-		}
-
-		// Step agent line
-		const agentMatch = line.match(/^\s+-\s+agent:\s+(.+)$/);
-		if (agentMatch && current) {
-			if (currentStep) {
-				current.steps.push(currentStep);
-			}
-			currentStep = { agent: agentMatch[1].trim(), prompt: "" };
-			continue;
-		}
-
-		// Step prompt line
-		const promptMatch = line.match(/^\s+prompt:\s+(.+)$/);
-		if (promptMatch && currentStep) {
-			let prompt = promptMatch[1].trim();
-			if ((prompt.startsWith('"') && prompt.endsWith('"')) ||
-				(prompt.startsWith("'") && prompt.endsWith("'"))) {
-				prompt = prompt.slice(1, -1);
-			}
-			prompt = prompt.replace(/\\n/g, "\n");
-			currentStep.prompt = prompt;
-			continue;
-		}
-	}
-
-	if (current && currentStep) {
-		current.steps.push(currentStep);
-	}
-
-	return chains.filter((c) => c.name !== "default" || c.steps.length > 0);
-}
-
-function parseChainFile(raw: string): { chains: ChainDef[]; defaultChain?: string } {
-	const defaultMatch = raw.match(/^default:\s*"?([^"\n#]+)"?\s*$/m);
-	const defaultChain = defaultMatch?.[1]?.trim();
-	return { chains: parseChainYaml(raw), defaultChain };
-}
-
-function mergeChains(base: ChainDef[], overlay: ChainDef[]): ChainDef[] {
-	const merged = [...base];
-	for (const chain of overlay) {
-		const idx = merged.findIndex((c) => c.name === chain.name);
-		if (idx >= 0) merged[idx] = chain;
-		else merged.push(chain);
-	}
-	return merged;
-}
-
-// ── Frontmatter Parser ───────────────────────────
-
-function parseAgentFile(filePath: string): AgentDef | null {
-	try {
-		const raw = readFileSync(filePath, "utf-8");
-		const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-		if (!match) return null;
-
-		const frontmatter: Record<string, string> = {};
-		for (const line of match[1].split("\n")) {
-			const idx = line.indexOf(":");
-			if (idx > 0) {
-				frontmatter[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-			}
-		}
-
-		if (!frontmatter.name) return null;
-
-		return {
-			name: frontmatter.name,
-			description: frontmatter.description || "",
-			tools: frontmatter.tools || "read,grep,find,ls",
-			systemPrompt: match[2].trim(),
-		};
-	} catch {
-		return null;
-	}
-}
-
-function scanAgentDirs(cwd: string): Map<string, AgentDef> {
-	const dirs = [
-		join(cwd, "agents"),
-		join(cwd, ".claude", "agents"),
-		join(cwd, ".pi", "agents"),
-		PACKAGE_AGENTS_DIR,
-		join(PI_AGENT_HOME, "agents"),
-	];
-
-	const agents = new Map<string, AgentDef>();
-
-	for (const dir of dirs) {
-		if (!existsSync(dir)) continue;
-		try {
-			for (const file of readdirSync(dir)) {
-				if (!file.endsWith(".md")) continue;
-				const fullPath = resolve(dir, file);
-				const def = parseAgentFile(fullPath);
-				if (def && !agents.has(def.name.toLowerCase())) {
-					agents.set(def.name.toLowerCase(), def);
-				}
-			}
-		} catch {}
-	}
-
-	return agents;
 }
 
 // ── Extension ────────────────────────────────────
@@ -225,11 +63,11 @@ export default function (pi: ExtensionAPI) {
 	// Per-step state for the active chain
 	let stepStates: StepState[] = [];
 	let pendingReset = false;
-		let defaultChainHint: string | undefined;
-		let chainMode = false;
-		let allToolNames: string[] = [];
-		let lastUserPrompt = "";
-		let chainRanThisTurn = false;
+	let defaultChainHint: string | undefined;
+	let chainMode = false;
+	let allToolNames: string[] = [];
+	let lastUserPrompt = "";
+	let chainRanThisTurn = false;
 
 	function loadChains(cwd: string) {
 		sessionDir = join(cwd, ".pi", "agent-sessions");
@@ -237,7 +75,7 @@ export default function (pi: ExtensionAPI) {
 			mkdirSync(sessionDir, { recursive: true });
 		}
 
-		allAgents = scanAgentDirs(cwd);
+		allAgents = scanAgents({ cwd, packageAgentsDir: PACKAGE_AGENTS_DIR, includePiPiSubdir: true });
 
 		agentSessions.clear();
 		for (const [key] of allAgents) {
@@ -253,7 +91,7 @@ export default function (pi: ExtensionAPI) {
 
 			if (existsSync(packageChainPath)) {
 				try {
-					const parsed = parseChainFile(readFileSync(packageChainPath, "utf-8"));
+					const parsed = loadChainDefinitions(readFileSync(packageChainPath, "utf-8"));
 					merged = parsed.chains;
 					defaultChainHint = parsed.defaultChain;
 				} catch {
@@ -263,9 +101,9 @@ export default function (pi: ExtensionAPI) {
 
 			if (existsSync(globalChainPath)) {
 				try {
-					const parsed = parseChainFile(readFileSync(globalChainPath, "utf-8"));
+					const parsed = loadChainDefinitions(readFileSync(globalChainPath, "utf-8"));
 					merged = mergeChains(merged, parsed.chains);
-					defaultChainHint = parsed.defaultChain;
+					defaultChainHint = parsed.defaultChain ?? defaultChainHint;
 				} catch {
 					// keep package chains
 				}
@@ -273,7 +111,7 @@ export default function (pi: ExtensionAPI) {
 
 		if (existsSync(projectChainPath)) {
 			try {
-				const parsed = parseChainFile(readFileSync(projectChainPath, "utf-8"));
+				const parsed = loadChainDefinitions(readFileSync(projectChainPath, "utf-8"));
 				merged = mergeChains(merged, parsed.chains);
 				if (parsed.defaultChain) defaultChainHint = parsed.defaultChain;
 			} catch {
@@ -480,108 +318,39 @@ ${agentCatalog}
 		agentDef: AgentDef,
 		task: string,
 		stepIndex: number,
-		_ctx: any,
+		_ctx: unknown,
 	): Promise<{ output: string; exitCode: number; elapsed: number }> {
-		const model = CURSOR_MODEL;
-
 		const agentKey = agentDef.name.toLowerCase().replace(/\s+/g, "-");
 		const agentSessionFile = join(sessionDir, `chain-${agentKey}.json`);
 		const hasSession = agentSessions.get(agentKey);
-
-		const args = [
-			"--mode", "json",
-			"-p",
-			"--no-extensions",
-			"--extension", CURSOR_SDK_EXTENSION,
-			...CURSOR_FAST_FLAGS,
-			"--model", model,
-			"--tools", agentDef.tools,
-			"--thinking", "off",
-			"--append-system-prompt", agentDef.systemPrompt,
-			"--session", agentSessionFile,
-		];
-
-		if (hasSession) {
-			args.push("-c");
-		}
-
-		args.push(task);
-
-		const textChunks: string[] = [];
-		const startTime = Date.now();
 		const state = stepStates[stepIndex];
 
-		return new Promise((resolve) => {
-				const proc = spawn(resolvePiBinary(), args, {
-				stdio: ["ignore", "pipe", "pipe"],
-				env: { ...process.env },
-			});
-
-			const timer = setInterval(() => {
-				state.elapsed = Date.now() - startTime;
-				updateWidget();
-			}, 1000);
-
-			let buffer = "";
-
-			proc.stdout!.setEncoding("utf-8");
-			proc.stdout!.on("data", (chunk: string) => {
-				buffer += chunk;
-				const lines = buffer.split("\n");
-				buffer = lines.pop() || "";
-				for (const line of lines) {
-					if (!line.trim()) continue;
-					try {
-						const event = JSON.parse(line);
-						if (event.type === "message_update") {
-							const delta = event.assistantMessageEvent;
-							if (delta?.type === "text_delta") {
-								textChunks.push(delta.delta || "");
-								const full = textChunks.join("");
-								const last = full.split("\n").filter((l: string) => l.trim()).pop() || "";
-								state.lastWork = last;
-								updateWidget();
-							}
-						}
-					} catch {}
-				}
-			});
-
-			proc.stderr!.setEncoding("utf-8");
-			proc.stderr!.on("data", () => {});
-
-			proc.on("close", (code) => {
-				if (buffer.trim()) {
-					try {
-						const event = JSON.parse(buffer);
-						if (event.type === "message_update") {
-							const delta = event.assistantMessageEvent;
-							if (delta?.type === "text_delta") textChunks.push(delta.delta || "");
-						}
-					} catch {}
-				}
-
-				clearInterval(timer);
-				const elapsed = Date.now() - startTime;
-				state.elapsed = elapsed;
-				const output = textChunks.join("");
-				state.lastWork = output.split("\n").filter((l: string) => l.trim()).pop() || "";
-
-				if (code === 0) {
-					agentSessions.set(agentKey, agentSessionFile);
-				}
-
-				resolve({ output, exitCode: code ?? 1, elapsed });
-			});
-
-			proc.on("error", (err) => {
-				clearInterval(timer);
-				resolve({
-					output: `Error spawning agent: ${err.message}`,
-					exitCode: 1,
-					elapsed: Date.now() - startTime,
-				});
-			});
+		return spawnPiJsonProcess(
+			import.meta.url,
+			{
+				task,
+				tools: agentDef.tools,
+				systemPrompt: agentDef.systemPrompt,
+				sessionFile: agentSessionFile,
+				continueSession: Boolean(hasSession),
+			},
+			{
+				onTextDelta: (_delta, _full, lastLine) => {
+					state.lastWork = lastLine;
+					updateWidget();
+				},
+				onTick: (elapsed) => {
+					state.elapsed = elapsed;
+					updateWidget();
+				},
+			},
+		).then(({ output, exitCode, elapsed }) => {
+			state.elapsed = elapsed;
+			state.lastWork = output.split("\n").filter((l: string) => l.trim()).pop() || "";
+			if (exitCode === 0) {
+				agentSessions.set(agentKey, agentSessionFile);
+			}
+			return { output, exitCode, elapsed };
 		});
 	}
 

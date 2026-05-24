@@ -41,4 +41,4 @@ jobs:
         run: pnpm run typecheck
 
       - name: Test
-        run: pnpm test
+        run: node --experimental-strip-types --test test/matrix.test.mjs test/subprocess.test.mjs test/agent-scan.test.mjs
