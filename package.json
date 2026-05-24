@@ -43,7 +43,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "pi-cursor-sdk": "0.1.16",
+    "pi-cursor-sdk": "0.1.18",
     "yaml": "2.9.0"
   },
   "overrides": {
