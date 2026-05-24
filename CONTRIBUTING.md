@@ -38,6 +38,24 @@ sfw pnpm run pack:dry
 - [ ] `check:secrets` and `pack:dry` pass
 - [ ] No secrets, session JSONL, auth files, or machine-specific paths committed
 
+## Release
+
+Releases are cut by the maintainer using `scripts/release-one.sh`:
+
+```bash
+# Pre-flight (must all pass)
+sfw pnpm run check:secrets
+sfw pnpm run pack:dry
+sfw pnpm run lint
+sfw pnpm run typecheck
+sfw pnpm test
+
+# Cut a release (pushes tag + GH release — review before running)
+./scripts/release-one.sh 0.2.15 "short subject" [extra-paths...]
+```
+
+The script bumps `package.json` version, prepends a CHANGELOG entry, commits, tags, pushes, and creates a GitHub release. Never re-run batch release scripts (`release-phase-b-batch.sh`) — they are historical reference only.
+
 ## Reporting issues
 
 Use GitHub Issues with the bug or feature template. For security issues, see [SECURITY.md](SECURITY.md).

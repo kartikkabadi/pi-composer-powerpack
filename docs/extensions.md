@@ -13,4 +13,4 @@ pi --model cursor/composer-2.5 --cursor-fast \
 | `auto-caveman.ts` | Terse “caveman” system prompt (`/caveman` toggle). Skill path: `PI_CAVEMAN_SKILL_PATH` or `~/.pi/agent/vendor-skills/.../caveman/SKILL.md` |
 | `superset-hooks.ts` | Superset terminal lifecycle hooks (activates only inside Superset) |
 
-They are maintained for personal/advanced use; behavior may change without a semver guarantee in `0.1.x`.
+They are maintained for personal/advanced use; behavior may change without a semver guarantee in `0.x`.
