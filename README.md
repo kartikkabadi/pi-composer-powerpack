@@ -10,7 +10,7 @@ This package bundles the pieces I use to make Pi behave like a fast Composer-bac
 - live subagent widgets
 - same-machine Pi-to-Pi `coms`
 - chain/team/Pi-Pi specialist workflows
-- curated agents, chains, teams, and the `mono-black` theme
+- curated agents, chains, teams, and the `mono-black` theme (all activated via the GitHub `pi install` path)
 
 ## This Repo Is a Guide + Curated Assets (Feed It to Your Agent)
 
@@ -31,13 +31,15 @@ This package bundles the pieces I use to make Pi behave like a fast Composer-bac
 9. Risk / unacceptable failure  
 10. Autonomy / execution preference  
 
-Then walk me through the copy-paste setup using the assets here (install.sh, launchers in bin/, extensions/, agents/ prompts, theme, config/damage-control-rules.yaml). Help me choose what I want and set everything up safely (Pi >=0.75.3, pi-cursor-sdk, etc.)."
+Then walk me through the copy-paste setup using the GitHub installer (pi install https://github.com/kartikkabadi/pi-composer-powerpack after the cursor-sdk one). Once activated via the package "pi" field, use the launchers (pi-elite etc. in PATH), the extensions (coms, damage-control-continue, subagent-widget, cursor-sdk), agents/ prompts, and mono-black theme from the pack. Help me choose what I want and set everything up safely (Pi >=0.75.3, pi-cursor-sdk, etc.)."
 
 The agent should walk the user through the intent questions first (product-boundary, not low-level impl), then the guide steps, using the curated assets in this repo as the source of truth for the polished experience.
 
 **Cross-link**: For the rock-solid, detailed, actual multi-agent planning/build runtime (doctor/setup/plan/build with Composer 2.5 exclusive, artifacts, autonomy contracts, etc.) that sits on top of this Pi Extension Pack setup, see the sibling **Foundry** repo: https://github.com/kartikkabadi/foundry (and its V1 planning docs). Both repos are active, cross-linked, and aligned per the 2026-05 clarification (powerpack = the guide layer; Foundry = the higher-level runtime).
 
-## Install
+## Install (GitHub / Primary Path)
+
+The recommended way for normal users is the GitHub installer (this activates the pack via the "pi" field in package.json — extensions + themes — with no manual script run).
 
 Prerequisites:
 
@@ -47,11 +49,20 @@ Prerequisites:
 ```bash
 pi install npm:pi-cursor-sdk@0.1.16
 pi install https://github.com/kartikkabadi/pi-composer-powerpack
-git clone https://github.com/kartikkabadi/pi-composer-powerpack ~/Projects/pi-composer-powerpack
-~/Projects/pi-composer-powerpack/install.sh
 ```
 
-The Cursor SDK is installed separately so machines with pnpm release-age guards can choose when to accept a fresh Cursor SDK version. The powerpack activates the wrapper/config package. `install.sh` copies launchers, agents, chains, teams, the theme, and damage-control rules.
+After install, the launchers (pi-elite, pi-team, pi-chain, pi-pi-lab) and extensions are available per the pack.
+
+**Local dev / testing from this checkout only** (not for normal users):
+
+```bash
+git clone https://github.com/kartikkabadi/pi-composer-powerpack ~/Projects/pi-composer-powerpack
+# (optional, for dev) ~/Projects/pi-composer-powerpack/install.sh
+```
+
+See `install.sh` header for details — it is a dev helper only. The GitHub `pi install` path is the supported one.
+
+The Cursor SDK is installed separately so machines with pnpm release-age guards can choose when to accept a fresh Cursor SDK version. The powerpack activates via its package.json "pi" field (4 extensions + themes).
 
 ## Launchers
 

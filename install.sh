@@ -10,7 +10,10 @@ mkdir -p "$PI_HOME/agents/pi-pi" "$PI_HOME/themes" "$LOCAL_BIN"
 
 cp -R "$REPO_ROOT/agents/." "$PI_HOME/agents/"
 cp -R "$REPO_ROOT/themes/." "$PI_HOME/themes/"
-cp "$REPO_ROOT/config/damage-control-rules.yaml" "$HOME/.pi/damage-control-rules.yaml"
+# damage-control-rules: use PI_HOME if set (GitHub installer / normal flow activates via package.json "pi" field; this line is for local/dev testing only)
+DAMAGE_HOME="${PI_HOME:-$HOME/.pi}"
+mkdir -p "$DAMAGE_HOME"
+cp "$REPO_ROOT/config/damage-control-rules.yaml" "$DAMAGE_HOME/damage-control-rules.yaml"
 
 for launcher in pi-elite pi-team pi-chain pi-pi-lab; do
   cp "$REPO_ROOT/bin/$launcher" "$LOCAL_BIN/$launcher"
