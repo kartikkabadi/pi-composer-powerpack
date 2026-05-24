@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.13] - 2026-05-24
+
+### Changed
+
+- CI socketdev action and sfw install
 ## [0.2.12] - 2026-05-24
 
 ### Changed

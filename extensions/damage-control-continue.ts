@@ -13,26 +13,16 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import { parse as yamlParse } from "yaml";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "os";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { powerpackPath } from "./powerpackPaths.ts";
-
-interface Rule {
-	pattern: string;
-	reason: string;
-	ask?: boolean;
-}
-
-interface Rules {
-	bashToolPatterns: Rule[];
-	zeroAccessPaths: string[];
-	readOnlyPaths: string[];
-	noDeletePaths: string[];
-}
+import {
+	evaluateToolCall,
+	type DamageControlRules,
+} from "./lib/damageControlRules.ts";
 
 const SECRET_PATTERN =
 	/(api[_-]?key|token|secret|password|bearer|sk-[a-zA-Z0-9]+)\s*[:=]\s*\S+/gi;
@@ -119,38 +109,12 @@ function continueFeedback(toolName: string, violationReason: string, invocation:
 }
 
 export default function (pi: ExtensionAPI) {
-	let rules: Rules = {
+	let rules: DamageControlRules = {
 		bashToolPatterns: [],
 		zeroAccessPaths: [],
 		readOnlyPaths: [],
 		noDeletePaths: [],
 	};
-
-	function resolvePath(p: string, cwd: string): string {
-		if (p.startsWith("~")) {
-			p = path.join(os.homedir(), p.slice(1));
-		}
-		return path.resolve(cwd, p);
-	}
-
-	function isPathMatch(targetPath: string, pattern: string, cwd: string): boolean {
-		const resolvedPattern = pattern.startsWith("~") ? path.join(os.homedir(), pattern.slice(1)) : pattern;
-
-		if (resolvedPattern.endsWith("/")) {
-			const absolutePattern = path.isAbsolute(resolvedPattern) ? resolvedPattern : path.resolve(cwd, resolvedPattern);
-			return targetPath.startsWith(absolutePattern);
-		}
-
-		const regexPattern = resolvedPattern
-			.replace(/[.+^${}()|[\]\\]/g, "\\$&")
-			.replace(/\*/g, ".*");
-
-		const regex = new RegExp(`^${regexPattern}$|^${regexPattern}/|/${regexPattern}$|/${regexPattern}/`);
-
-		const relativePath = path.relative(cwd, targetPath);
-
-		return regex.test(targetPath) || regex.test(relativePath) || targetPath.includes(resolvedPattern) || relativePath.includes(resolvedPattern);
-	}
 
 	pi.on("session_start", async (_event, ctx) => {
 		applyExtensionDefaults(import.meta.url, ctx);
@@ -167,7 +131,7 @@ export default function (pi: ExtensionAPI) {
 		try {
 			if (rulesPath) {
 				const content = fs.readFileSync(rulesPath, "utf8");
-				const loaded = yamlParse(content) as Partial<Rules>;
+				const loaded = yamlParse(content) as Partial<DamageControlRules>;
 				rules = {
 					bashToolPatterns: loaded.bashToolPatterns || [],
 					zeroAccessPaths: loaded.zeroAccessPaths || [],
@@ -189,92 +153,12 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
-		let violationReason: string | null = null;
-		let shouldAsk = false;
-
-		const checkPaths = (pathsToCheck: string[]) => {
-			for (const p of pathsToCheck) {
-				const resolved = resolvePath(p, ctx.cwd);
-				for (const zap of rules.zeroAccessPaths) {
-					if (isPathMatch(resolved, zap, ctx.cwd)) {
-						return `Access to zero-access path restricted: ${zap}`;
-					}
-				}
-			}
-			return null;
-		};
-
-		const inputPaths: string[] = [];
-		if (isToolCallEventType("read", event) || isToolCallEventType("write", event) || isToolCallEventType("edit", event)) {
-			inputPaths.push(event.input.path);
-		} else if (isToolCallEventType("grep", event) || isToolCallEventType("find", event) || isToolCallEventType("ls", event)) {
-			inputPaths.push(event.input.path || ".");
-		}
-
-		if (isToolCallEventType("grep", event) && event.input.glob) {
-			for (const zap of rules.zeroAccessPaths) {
-				if (event.input.glob.includes(zap) || isPathMatch(event.input.glob, zap, ctx.cwd)) {
-					violationReason = `Glob matches zero-access path: ${zap}`;
-					break;
-				}
-			}
-		}
-
-		if (!violationReason) {
-			violationReason = checkPaths(inputPaths);
-		}
-
-		if (!violationReason) {
-			if (isToolCallEventType("bash", event)) {
-				const command = event.input.command;
-
-				for (const rule of rules.bashToolPatterns) {
-					const regex = new RegExp(rule.pattern);
-					if (regex.test(command)) {
-						violationReason = rule.reason;
-						shouldAsk = !!rule.ask;
-						break;
-					}
-				}
-
-				if (!violationReason) {
-					for (const zap of rules.zeroAccessPaths) {
-						if (command.includes(zap)) {
-							violationReason = `Bash command references zero-access path: ${zap}`;
-							break;
-						}
-					}
-				}
-
-				if (!violationReason) {
-					for (const rop of rules.readOnlyPaths) {
-						if (command.includes(rop) && (/[\s>|]/.test(command) || command.includes("rm") || command.includes("mv") || command.includes("sed"))) {
-							violationReason = `Bash command may modify read-only path: ${rop}`;
-							break;
-						}
-					}
-				}
-
-				if (!violationReason) {
-					for (const ndp of rules.noDeletePaths) {
-						if (command.includes(ndp) && (command.includes("rm") || command.includes("mv"))) {
-							violationReason = `Bash command attempts to delete/move protected path: ${ndp}`;
-							break;
-						}
-					}
-				}
-			} else if (isToolCallEventType("write", event) || isToolCallEventType("edit", event)) {
-				for (const p of inputPaths) {
-					const resolved = resolvePath(p, ctx.cwd);
-					for (const rop of rules.readOnlyPaths) {
-						if (isPathMatch(resolved, rop, ctx.cwd)) {
-							violationReason = `Modification of read-only path restricted: ${rop}`;
-							break;
-						}
-					}
-				}
-			}
-		}
+		const { violationReason, shouldAsk } = evaluateToolCall(
+			rules,
+			event.toolName,
+			event.input,
+			ctx.cwd,
+		);
 
 		if (violationReason) {
 			const invocation = redactInvocation(event.toolName, event.input);
