@@ -30,7 +30,7 @@ import { readFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from "no
 import { join } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
-import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
+import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
 import {
 	scanAgents,
 	loadChainDefinitions,
@@ -324,7 +324,7 @@ ${agentCatalog}
 		const hasSession = agentSessions.get(agentKey);
 		const state = stepStates[stepIndex];
 
-		return spawnPiJsonProcess(
+		return runSpecialistSpawn(
 			import.meta.url,
 			{
 				task,

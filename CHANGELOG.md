@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-05-24
+
+### Changed
+
+- agent-chain runAgent via runSpecialistSpawn
+
 ## [0.2.6] - 2026-05-24
 
 ### Changed
