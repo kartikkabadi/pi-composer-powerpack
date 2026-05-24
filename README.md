@@ -145,6 +145,9 @@ From a maintainer checkout:
 ```bash
 sfw pnpm run check:secrets
 sfw pnpm run pack:dry
+sfw pnpm run lint
+sfw pnpm run typecheck
+sfw pnpm test
 ```
 
 After installing into a Pi profile:

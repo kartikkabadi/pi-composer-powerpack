@@ -35,8 +35,9 @@ sfw pnpm run pack:dry
 
 - [ ] README and docs updated if user-facing behavior changed
 - [ ] `package.json` `pi.extensions` and `files` remain accurate
-- [ ] `check:secrets` and `pack:dry` pass
+- [ ] `check:secrets`, `pack:dry`, `lint`, `typecheck`, and `test` all pass
 - [ ] No secrets, session JSONL, auth files, or machine-specific paths committed
+- [ ] All extension files under 1000 LOC
 
 ## Release
 
