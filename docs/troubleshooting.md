@@ -61,7 +61,40 @@ Requires Pi **≥ 0.75.3**. Auth is post-install: run `/login` in Pi before your
 ## Damage control
 
 - Bundled rules ship in `config/damage-control-rules.yaml`.
-- User overrides: `~/.pi/damage-control-rules.yaml` (if present) take precedence per extension logic.
+- **Project rules win:** `.pi/damage-control-rules.yaml` in the current project overrides bundled defaults and `~/.pi/damage-control-rules.yaml`.
+- User-global overrides: `~/.pi/damage-control-rules.yaml` (used when no project file exists).
+
+## Conflicts and migration
+
+If you previously installed overlapping extensions manually (`subagent-widget`, old `coms`, duplicate `pi-cursor-sdk`, etc.):
+
+1. Run `pi list` and note installed packages/extensions.
+2. Remove duplicates: `pi remove <package-or-extension-id>` for anything that duplicates powerpack entries.
+3. Drop manual `-e extensions/...` flags from shell aliases if they now load automatically via `pi install`.
+4. Restart Pi after cleanup.
+
+Extension IDs are stable per path; reinstalling the powerpack with `pi install https://github.com/kartikkabadi/pi-composer-powerpack` refreshes bundled assets without a separate npm step.
+
+## Linux / Docker / glibc
+
+The bundled `pi-cursor-sdk` pulls native dependencies (notably `sqlite3`) that require **glibc ≥ 2.38** on Linux.
+
+| Environment | Typical result |
+|-------------|----------------|
+| Node 22 on **trixie** (glibc 2.41+) | Works — recommended CI/dev baseline |
+| Node 22 on **bookworm** (glibc 2.36) | May fail loading cursor-sdk (`GLIBC_2.38` not found) |
+| macOS / Windows | Use official Pi + Node 22 LTS builds |
+
+Mitigations on older Linux:
+
+- Prefer a trixie-based or newer container image.
+- Or install build tooling (`build-essential`, `libsqlite3-dev`) and allow native rebuild (slower, not guaranteed on all distros).
+
+## Fresh install failures
+
+- **Node 25+ / bleeding edge:** Some native modules may lack prebuilds; prefer **Node 22 LTS**.
+- **Empty npm cache / cert errors:** Retry install; ensure system CA certs are current.
+- **Maintainer Socket Firewall:** Use `sfw pnpm install` locally; end users install via `pi install`, not repo `pnpm install`.
 
 ## Maintainer checks
 

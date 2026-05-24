@@ -12,7 +12,7 @@ For developers on **Pi ≥ 0.75.3** who want Composer fast mode with opinionated
 
 ### Install
 
-Requires Pi **≥ 0.75.3** (see [Troubleshooting](docs/troubleshooting.md#install-and-startup) if install fails).
+Requires Pi **≥ 0.75.3** (see [Troubleshooting](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/docs/troubleshooting.md#install-and-startup) if install fails).
 
 ```bash
 pi install https://github.com/kartikkabadi/pi-composer-powerpack
@@ -29,7 +29,7 @@ Composer runs through [pi-cursor-sdk](https://github.com/fitchmultz/pi-cursor-sd
 2. Run `/login` and follow the prompts to store a **Cursor API key** in your Pi profile.
 3. Confirm the model: `pi --model cursor/composer-2.5 --cursor-fast`
 
-If models appear in the picker but runs fail immediately, you usually need `/login` or a valid API key. See [docs/troubleshooting.md](docs/troubleshooting.md).
+If models appear in the picker but runs fail immediately, you usually need `/login` or a valid API key. See [docs/troubleshooting.md](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/docs/troubleshooting.md).
 
 ## What installs automatically
 
@@ -45,7 +45,7 @@ If models appear in the picker but runs fail immediately, you usually need `/log
 
 **Dormant** means the extension is installed but does not restrict tools or change the system prompt until you run the activation command.
 
-Optional extensions shipped in-repo but **not** auto-loaded: `tilldone`, `auto-caveman`, `superset-hooks`. See [docs/extensions.md](docs/extensions.md).
+Optional extensions shipped in-repo but **not** auto-loaded: `tilldone`, `auto-caveman`, `superset-hooks`. See [docs/extensions.md](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/docs/extensions.md).
 
 ## Workflow commands
 
@@ -135,7 +135,7 @@ Set default chain: `PI_DEFAULT_CHAIN=plan-build-review`.
 
 | Subagents (`/sub`) | Team grid (`/agents-mode`) | Chain pipeline (`/chain-mode`) |
 |---|---|---|
-| ![Subagent widgets](docs/screenshots/subagent-running.png) | ![Team grid](docs/screenshots/team-grid.png) | ![Chain pipeline](docs/screenshots/chain-pipeline.png) |
+| ![Subagent widgets](https://github.com/kartikkabadi/pi-composer-powerpack/raw/main/docs/screenshots/subagent-running.png) | ![Team grid](https://github.com/kartikkabadi/pi-composer-powerpack/raw/main/docs/screenshots/team-grid.png) | ![Chain pipeline](https://github.com/kartikkabadi/pi-composer-powerpack/raw/main/docs/screenshots/chain-pipeline.png) |
 
 ## Verify
 
@@ -167,12 +167,12 @@ This powerpack adds orchestration, agents, themes, and safety on top of the SDK 
 
 ## Docs
 
-- [Architecture](docs/architecture.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Optional extensions](docs/extensions.md)
-- [Contributing](CONTRIBUTING.md)
-- [Changelog](CHANGELOG.md)
-- [Security](SECURITY.md)
+- [Architecture](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/docs/architecture.md)
+- [Troubleshooting](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/docs/troubleshooting.md)
+- [Optional extensions](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/docs/extensions.md)
+- [Contributing](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/CONTRIBUTING.md)
+- [Changelog](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/CHANGELOG.md)
+- [Security](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/SECURITY.md)
 
 ## License
 

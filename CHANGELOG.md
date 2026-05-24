@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-05-25
+
+### Added
+
+- Troubleshooting: migration, glibc/Linux matrix, install failures, damage-control precedence
+- README doc links use GitHub URLs for tarball installs
+- Ignore `.pi/` in git
+
 ## [0.1.6] - 2026-05-25
 
 ### Fixed
