@@ -19,7 +19,7 @@ pi install https://github.com/kartikkabadi/pi-composer-powerpack
 pi --model cursor/composer-2.5 --cursor-fast
 ```
 
-The package bundles `pi-cursor-sdk@0.1.16` as a dependency, so the Cursor provider installs with the powerpack. No `install.sh`, shell launchers, or second manual npm step.
+The package bundles `pi-cursor-sdk@0.1.18` as a dependency, so the Cursor provider installs with the powerpack. No `install.sh`, shell launchers, or second manual npm step.
 
 ## Authentication
 

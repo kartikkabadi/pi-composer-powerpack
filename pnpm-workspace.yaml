@@ -1,6 +1,9 @@
 packages:
   - "."
 
+# Allow fresh transitive deps when refreshing the lockfile locally (CI uses frozen lockfile).
+minimumReleaseAge: 0
+
 allowBuilds:
   '@google/genai': true
   koffi: true
@@ -8,6 +11,8 @@ allowBuilds:
   sqlite3: true
 minimumReleaseAgeExclude:
   - pi-cursor-sdk
+  - node-addon-api
+  - semver
 
 overrides:
   sqlite3: 6.0.1
