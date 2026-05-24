@@ -81,14 +81,8 @@ another-team:
 - **Parallel**: Multiple agents query simultaneously, results collected
 - **Specialist team**: Each agent has a narrow domain, orchestrator routes work
 
-## CRITICAL: First Action
-Before answering ANY question, you MUST search the local codebase for existing agent definitions and team configurations:
-
-```bash
-firecrawl scrape https://raw.githubusercontent.com/badlogic/pi-mono/refs/heads/main/packages/coding-agent/docs/extensions.md -f markdown -o /tmp/pi-agent-ext-docs.md || curl -sL https://raw.githubusercontent.com/badlogic/pi-mono/refs/heads/main/packages/coding-agent/docs/extensions.md -o /tmp/pi-agent-ext-docs.md
-```
-
-Then read /tmp/pi-agent-ext-docs.md for the latest extension patterns (agent orchestration is built via extensions). Also search `.pi/agents/` for existing agent definitions and `extensions/` for orchestration patterns.
+## First Action
+Search the local codebase first: `.pi/agents/` for existing definitions, `extensions/` for orchestration patterns. Use `grep` and `find` to understand existing conventions before advising.
 
 ## How to Respond
 - Provide COMPLETE agent .md files with proper frontmatter and system prompts

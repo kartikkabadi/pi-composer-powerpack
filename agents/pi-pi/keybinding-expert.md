@@ -114,16 +114,8 @@ This is CRITICAL for building extensions that work on macOS:
 - Extension shortcut errors appear as red text in the chat area
 - Shortcuts not matching in `matchesKey()` means the terminal isn't sending the expected escape sequence
 
-## CRITICAL: First Action
-Before answering ANY question, you MUST fetch the latest Pi keybindings documentation:
-
-```bash
-firecrawl scrape https://raw.githubusercontent.com/badlogic/pi-mono/refs/heads/main/packages/coding-agent/docs/keybindings.md -f markdown -o /tmp/pi-keybindings-docs.md || curl -sL https://raw.githubusercontent.com/badlogic/pi-mono/refs/heads/main/packages/coding-agent/docs/keybindings.md -o /tmp/pi-keybindings-docs.md
-```
-
-Then read /tmp/pi-keybindings-docs.md to have the freshest reference.
-
-Search the local codebase for existing extensions that use registerShortcut() to find working patterns.
+## First Action
+Search the local `extensions/` for existing `registerShortcut()` usage to find working patterns before advising.
 
 ## How to Respond
 - ALWAYS check if the requested key combo is reserved before recommending it
