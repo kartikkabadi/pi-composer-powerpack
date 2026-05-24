@@ -25,27 +25,27 @@ after(() => {
 	delete process.env.PI_SUBAGENT_DAMAGE_CONTROL;
 });
 
-test("buildChildPiArgv omits damage-control extension by default (until v0.2.0)", () => {
+test("buildChildPiArgv includes damage-control extension by default", () => {
 	const argv = buildChildPiArgv(callerUrl, {
 		task: "test task",
 		tools: "read,grep",
 		systemPrompt: "You are a test agent.",
 	});
 	const extensionFlags = argv.filter((a) => a === "--extension");
-	assert.equal(extensionFlags.length, 1);
+	assert.equal(extensionFlags.length, 2);
 	assert.ok(argv.includes("--no-extensions"));
 	assert.ok(argv.includes("--cursor-fast"));
 	assert.equal(argv.at(-1), "test task");
 });
 
-test("PI_SUBAGENT_DAMAGE_CONTROL=1 loads damage-control extension", () => {
-	process.env.PI_SUBAGENT_DAMAGE_CONTROL = "1";
+test("PI_SUBAGENT_DAMAGE_CONTROL=0 omits damage-control extension", () => {
+	process.env.PI_SUBAGENT_DAMAGE_CONTROL = "0";
 	const argv = buildChildPiArgv(callerUrl, {
-		task: "with dc",
+		task: "no dc",
 		tools: "read",
 	});
 	const extensionFlags = argv.filter((a) => a === "--extension");
-	assert.equal(extensionFlags.length, 2);
+	assert.equal(extensionFlags.length, 1);
 });
 
 test("spawnPiJsonProcess parses stub NDJSON output", async () => {

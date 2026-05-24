@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-25
+
+### Added
+
+- Split coms into `extensions/coms/*` modules
+- Damage-control log redaction; child subprocess DC enabled by default
+- linux-smoke CI matrix; coms transport + redaction tests
+
 ## [0.1.9] - 2026-05-25
 
 ### Added

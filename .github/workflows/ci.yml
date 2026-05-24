@@ -41,4 +41,36 @@ jobs:
         run: pnpm run typecheck
 
       - name: Test
-        run: node --experimental-strip-types --test test/matrix.test.mjs test/subprocess.test.mjs test/agent-scan.test.mjs
+        run: node --experimental-strip-types --test test/*.test.mjs
+
+  linux-smoke:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix:
+        image: [node:22-trixie, node:22-bookworm]
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install git and curl
+        run: apt-get update && apt-get install -y git curl
+
+      - name: Install Pi CLI
+        run: npm install -g @earendil-works/pi-coding-agent@0.75.4
+
+      - name: Install powerpack from checkout
+        run: pi install file://$(pwd)
+
+      - name: Check cursor-fast flag availability
+        run: |
+          if pi --help 2>&1 | grep -q cursor-fast; then
+            echo "PASS: --cursor-fast present on ${{ matrix.image }}"
+          else
+            echo "WARN: --cursor-fast missing on ${{ matrix.image }} (expected on bookworm)"
+            if echo "${{ matrix.image }}" | grep -q bookworm; then
+              exit 0
+            fi
+            exit 1
+          fi

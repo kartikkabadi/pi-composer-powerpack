@@ -25,7 +25,7 @@ export function getDamageControlExtensionPath(callerUrl: string): string {
 }
 
 export function shouldLoadChildDamageControl(): boolean {
-	return process.env.PI_SUBAGENT_DAMAGE_CONTROL === "1";
+	return process.env.PI_SUBAGENT_DAMAGE_CONTROL !== "0";
 }
 
 export function getPiAgentHome(): string {

@@ -90,6 +90,15 @@ Mitigations on older Linux:
 - Prefer a trixie-based or newer container image.
 - Or install build tooling (`build-essential`, `libsqlite3-dev`) and allow native rebuild (slower, not guaranteed on all distros).
 
+See the optional `linux-smoke` CI job in `.github/workflows/ci.yml` (trixie pass, bookworm may warn).
+
+## Child agent safety
+
+Subagents spawned by `/sub`, `run_chain`, `dispatch_agent`, and `query_experts` run with `--no-extensions` plus cursor-sdk and **damage-control-continue** by default.
+
+- Opt out: `PI_SUBAGENT_DAMAGE_CONTROL=0`
+- Subprocesses inherit `process.env` — do not rely on child isolation for secrets in env vars.
+
 ## Fresh install failures
 
 - **Node 25+ / bleeding edge:** Some native modules may lack prebuilds; prefer **Node 22 LTS**.

@@ -126,6 +126,7 @@ Set default chain: `PI_DEFAULT_CHAIN=plan-build-review`.
 | `PI_CODING_AGENT_DIR` | Pi agent home (default: `~/.pi/agent`) |
 | `PI_SUBAGENT_MODEL` | Model for spawned subagents (default: `cursor/composer-2.5`) |
 | `PI_SUBAGENT_CURSOR_FAST` | Set to `0` to disable `--cursor-fast` on subagents |
+| `PI_SUBAGENT_DAMAGE_CONTROL` | Set to `0` to omit damage-control on child subprocesses (default: on) |
 | `PI_CURSOR_SDK_EXTENSION` | Path to cursor-sdk extension override |
 | `PI_POWERPACK_PI` / `PI_BIN` | `pi` binary path override |
 | `PI_COMS_DIR` | Coms socket/registry directory |

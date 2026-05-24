@@ -34,6 +34,45 @@ interface Rules {
 	noDeletePaths: string[];
 }
 
+const SECRET_PATTERN =
+	/(api[_-]?key|token|secret|password|bearer|sk-[a-zA-Z0-9]+)\s*[:=]\s*\S+/gi;
+
+function sanitizeToolInput(_toolName: string, input: unknown): unknown {
+	if (process.env.PI_DAMAGE_CONTROL_LOG_RAW === "1") {
+		return input;
+	}
+	if (typeof input === "string") {
+		return input.replace(SECRET_PATTERN, "$1=[REDACTED]");
+	}
+	if (!input || typeof input !== "object") {
+		return input;
+	}
+	const record = { ...(input as Record<string, unknown>) };
+	if (typeof record.command === "string") {
+		record.command = record.command
+			.replace(SECRET_PATTERN, "$1=[REDACTED]")
+			.replace(/sk-[a-zA-Z0-9]+/g, "sk-[REDACTED]");
+	}
+	if (typeof record.content === "string" && record.content.length > 200) {
+		record.content = `${record.content.slice(0, 200)}… [truncated]`;
+	}
+	return record;
+}
+
+function logViolation(
+	pi: ExtensionAPI,
+	event: { toolName: string; input: unknown },
+	rule: string,
+	action: string,
+): void {
+	pi.appendEntry("damage-control-log", {
+		tool: event.toolName,
+		input: sanitizeToolInput(event.toolName, event.input),
+		rule,
+		action,
+	});
+}
+
 function continueFeedback(toolName: string, violationReason: string, invocation: string): string {
 	return [
 		`🛡️ Damage-Control: ${toolName} blocked — ${violationReason}`,
@@ -225,16 +264,16 @@ export default function (pi: ExtensionAPI) {
 
 				if (!confirmed) {
 					ctx.ui.setStatus("damage-control", `⚠️ Blocked: ${violationReason.slice(0, 30)}...`);
-					pi.appendEntry("damage-control-log", { tool: event.toolName, input: event.input, rule: violationReason, action: "blocked_by_user" });
+					logViolation(pi, event, violationReason, "blocked_by_user");
 					return { block: true, reason: continueFeedback(event.toolName, `${violationReason} (user denied)`, invocation) };
 				} else {
-					pi.appendEntry("damage-control-log", { tool: event.toolName, input: event.input, rule: violationReason, action: "confirmed_by_user" });
+					logViolation(pi, event, violationReason, "confirmed_by_user");
 					return { block: false };
 				}
 			} else {
 				ctx.ui.notify(`🛑 Damage-Control: Blocked ${event.toolName} (${violationReason}) — agent will adapt and continue.`, "warning");
 				ctx.ui.setStatus("damage-control", `⚠️ Last violation: ${violationReason.slice(0, 30)}...`);
-				pi.appendEntry("damage-control-log", { tool: event.toolName, input: event.input, rule: violationReason, action: "blocked" });
+				logViolation(pi, event, violationReason, "blocked");
 				return { block: true, reason: continueFeedback(event.toolName, violationReason, invocation) };
 			}
 		}
@@ -242,3 +281,5 @@ export default function (pi: ExtensionAPI) {
 		return { block: false };
 	});
 }
+
+export { sanitizeToolInput };
