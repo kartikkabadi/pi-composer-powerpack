@@ -1,8 +1,11 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import fs from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 const CAVEMAN_SKILL_PATH =
-	"/Users/user/.pi/agent/vendor-skills/mattpocock-skills/skills/productivity/caveman/SKILL.md";
+	process.env.PI_CAVEMAN_SKILL_PATH ||
+	join(homedir(), ".pi", "agent", "vendor-skills", "mattpocock-skills", "skills", "productivity", "caveman", "SKILL.md");
 
 export default function autoCaveman(pi: ExtensionAPI) {
 	// Default ON so every new session starts in caveman mode

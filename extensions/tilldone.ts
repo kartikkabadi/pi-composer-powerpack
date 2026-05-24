@@ -286,11 +286,11 @@ export default function (pi: ExtensionAPI) {
 
 	const refreshUI = (ctx: ExtensionContext) => {
 		if (tasks.length === 0) {
-			ctx.ui.setStatus("📋 TillDone: no tasks", "tilldone");
+			ctx.ui.setStatus("tilldone", "📋 TillDone: no tasks");
 		} else {
 			const remaining = tasks.filter((t) => t.status !== "done").length;
 			const label = listTitle ? `📋 ${listTitle}` : "📋 TillDone";
-			ctx.ui.setStatus(`${label}: ${tasks.length} tasks (${remaining} remaining)`, "tilldone");
+			ctx.ui.setStatus("tilldone", `${label}: ${tasks.length} tasks (${remaining} remaining)`);
 		}
 
 		refreshWidget(ctx);

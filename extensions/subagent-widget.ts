@@ -16,15 +16,14 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 import { Container, Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
-const { spawn } = require("child_process") as any;
+import { spawn } from "child_process";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
 import { applyExtensionDefaults } from "./themeMap.ts";
+import { piAgentHome, powerpackCursorSdkExtension, resolvePiBinary } from "./powerpackPaths.ts";
 
-const PI_AGENT_HOME = process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), ".pi", "agent");
 const CURSOR_MODEL = process.env.PI_SUBAGENT_MODEL || "cursor/composer-2.5";
-const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || path.join(PI_AGENT_HOME, "npm", "node_modules", "pi-cursor-sdk", "src", "index.ts");
+const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || powerpackCursorSdkExtension(import.meta.url);
 const CURSOR_FAST_FLAGS = process.env.PI_SUBAGENT_CURSOR_FAST === "0" ? [] : ["--cursor-fast"];
 
 interface SubState {
@@ -47,7 +46,7 @@ export default function (pi: ExtensionAPI) {
 	// ── Session file helpers ──────────────────────────────────────────────────
 
 	function makeSessionFile(id: number): string {
-		const dir = path.join(os.homedir(), ".pi", "agent", "sessions", "subagents");
+		const dir = path.join(piAgentHome(), "sessions", "subagents");
 		fs.mkdirSync(dir, { recursive: true });
 		return path.join(dir, `subagent-${id}-${Date.now()}.jsonl`);
 	}
@@ -142,7 +141,7 @@ export default function (pi: ExtensionAPI) {
 		const model = CURSOR_MODEL;
 
 		return new Promise<void>((resolve) => {
-			const proc = spawn("pi", [
+			const proc = spawn(resolvePiBinary(), [
 				"--mode", "json",
 				"-p",
 				"--session", state.sessionFile,   // persistent session for /subcont resumption
@@ -195,7 +194,7 @@ export default function (pi: ExtensionAPI) {
 				const result = state.textChunks.join("");
 				ctx.ui.notify(
 					`Subagent #${state.id} ${state.status} in ${Math.round(state.elapsed / 1000)}s`,
-					state.status === "done" ? "success" : "error"
+					state.status === "done" ? "info" : "error"
 				);
 
 				pi.sendMessage({
@@ -465,7 +464,7 @@ export default function (pi: ExtensionAPI) {
 			const msg = total === 0
 				? "No subagents to clear."
 				: `Cleared ${total} subagent${total !== 1 ? "s" : ""}${killed > 0 ? ` (${killed} killed)` : ""}.`;
-			ctx.ui.notify(msg, total === 0 ? "info" : "success");
+			ctx.ui.notify(msg, "info");
 		},
 	});
 

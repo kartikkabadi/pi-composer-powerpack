@@ -19,6 +19,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { applyExtensionDefaults } from "./themeMap.ts";
+import { powerpackPath } from "./powerpackPaths.ts";
 
 interface Rule {
 	pattern: string;
@@ -92,7 +93,14 @@ export default function (pi: ExtensionAPI) {
 		applyExtensionDefaults(import.meta.url, ctx);
 		const projectRulesPath = path.join(ctx.cwd, ".pi", "damage-control-rules.yaml");
 		const globalRulesPath = path.join(os.homedir(), ".pi", "damage-control-rules.yaml");
-		const rulesPath = fs.existsSync(projectRulesPath) ? projectRulesPath : fs.existsSync(globalRulesPath) ? globalRulesPath : null;
+		const packageRulesPath = powerpackPath(import.meta.url, "config", "damage-control-rules.yaml");
+		const rulesPath = fs.existsSync(projectRulesPath)
+			? projectRulesPath
+			: fs.existsSync(globalRulesPath)
+				? globalRulesPath
+				: fs.existsSync(packageRulesPath)
+					? packageRulesPath
+					: null;
 		try {
 			if (rulesPath) {
 				const content = fs.readFileSync(rulesPath, "utf8");
@@ -103,18 +111,18 @@ export default function (pi: ExtensionAPI) {
 					readOnlyPaths: loaded.readOnlyPaths || [],
 					noDeletePaths: loaded.noDeletePaths || [],
 				};
-				const source = rulesPath === projectRulesPath ? "project" : "global";
+				const source = rulesPath === projectRulesPath ? "project" : rulesPath === globalRulesPath ? "global" : "package";
 				const total = rules.bashToolPatterns.length + rules.zeroAccessPaths.length + rules.readOnlyPaths.length + rules.noDeletePaths.length;
-				ctx.ui.notify(`🛡️ Damage-Control (continue): Loaded ${total} rules (${source}). Blocks deliver feedback so the agent can adapt and keep working.`);
+				ctx.ui.notify(`🛡️ Damage-Control (continue): Loaded ${total} rules (${source}). Blocks deliver feedback so the agent can adapt and keep working.`, "info");
 			} else {
-				ctx.ui.notify("🛡️ Damage-Control (continue): No rules found at .pi/damage-control-rules.yaml (project or global)");
+				ctx.ui.notify("🛡️ Damage-Control (continue): No rules found.", "warning");
 			}
 		} catch (err) {
-			ctx.ui.notify(`🛡️ Damage-Control (continue): Failed to load rules: ${err instanceof Error ? err.message : String(err)}`);
+			ctx.ui.notify(`🛡️ Damage-Control (continue): Failed to load rules: ${err instanceof Error ? err.message : String(err)}`, "error");
 		}
 
 		const total = rules.bashToolPatterns.length + rules.zeroAccessPaths.length + rules.readOnlyPaths.length + rules.noDeletePaths.length;
-		ctx.ui.setStatus(`🛡️ Damage-Control (continue): ${total} Rules`);
+		ctx.ui.setStatus("damage-control", `🛡️ Damage-Control: ${total} rules`);
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
@@ -216,7 +224,7 @@ export default function (pi: ExtensionAPI) {
 				);
 
 				if (!confirmed) {
-					ctx.ui.setStatus(`⚠️ Last Violation Blocked: ${violationReason.slice(0, 30)}...`);
+					ctx.ui.setStatus("damage-control", `⚠️ Blocked: ${violationReason.slice(0, 30)}...`);
 					pi.appendEntry("damage-control-log", { tool: event.toolName, input: event.input, rule: violationReason, action: "blocked_by_user" });
 					return { block: true, reason: continueFeedback(event.toolName, `${violationReason} (user denied)`, invocation) };
 				} else {
@@ -224,8 +232,8 @@ export default function (pi: ExtensionAPI) {
 					return { block: false };
 				}
 			} else {
-				ctx.ui.notify(`🛑 Damage-Control: Blocked ${event.toolName} (${violationReason}) — agent will adapt and continue.`);
-				ctx.ui.setStatus(`⚠️ Last Violation: ${violationReason.slice(0, 30)}...`);
+				ctx.ui.notify(`🛑 Damage-Control: Blocked ${event.toolName} (${violationReason}) — agent will adapt and continue.`, "warning");
+				ctx.ui.setStatus("damage-control", `⚠️ Last violation: ${violationReason.slice(0, 30)}...`);
 				pi.appendEntry("damage-control-log", { tool: event.toolName, input: event.input, rule: violationReason, action: "blocked" });
 				return { block: true, reason: continueFeedback(event.toolName, violationReason, invocation) };
 			}

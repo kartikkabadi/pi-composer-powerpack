@@ -1,9 +1,0 @@
-#!/bin/zsh
-POWERPACK="${PI_POWERPACK_HOME:-$HOME/.pi/agent/npm/node_modules/pi-composer-powerpack}"
-export PI_DEFAULT_CHAIN="${PI_DEFAULT_CHAIN:-full-review}"
-exec "${PI_POWERPACK_PI:-$HOME/.local/bin/pi}" --model cursor/composer-2.5 --cursor-fast \
-  --no-extensions \
-  -e "$POWERPACK/extensions/cursor-sdk.ts" \
-  -e "$POWERPACK/extensions/agent-chain.ts" \
-  -e "$POWERPACK/extensions/damage-control-continue.ts" \
-  "$@"

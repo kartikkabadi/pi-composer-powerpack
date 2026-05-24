@@ -30,6 +30,7 @@ import * as crypto from "node:crypto";
 const COMS_DIR = process.env.PI_COMS_DIR || path.join(os.homedir(), ".pi", "coms");
 const MAX_HOPS = Number(process.env.PI_COMS_MAX_HOPS) || 5;
 const TIMEOUT_MS = Number(process.env.PI_COMS_TIMEOUT_MS) || 1_800_000;
+const ACK_TIMEOUT_MS = Number(process.env.PI_COMS_ACK_TIMEOUT_MS) || 15_000;
 const PING_INTERVAL_MS = Number(process.env.PI_COMS_PING_INTERVAL_MS) || 10_000;
 const KEEPALIVE_INTERVAL_MS = 30_000;
 const LINE_CAP_BYTES = 64 * 1024;
@@ -457,16 +458,27 @@ function readOneLine(socket: net.Socket): Promise<string> {
 	});
 }
 
-function sendEnvelope(endpoint: string, envelope: Envelope | Pong | { type: string; msg_id?: string; [k: string]: any }): Promise<any> {
+function sendEnvelope(
+	endpoint: string,
+	envelope: Envelope | Pong | { type: string; msg_id?: string; [k: string]: any },
+	timeoutMs = ACK_TIMEOUT_MS,
+): Promise<any> {
 	return new Promise((resolve, reject) => {
 		const sock = net.createConnection({ path: endpoint });
 		let settled = false;
+		let timer: NodeJS.Timeout | null = null;
 		const fail = (err: Error) => {
 			if (settled) return;
 			settled = true;
+			if (timer) {
+				try { clearTimeout(timer); } catch { /* ignore */ }
+				timer = null;
+			}
 			try { sock.destroy(); } catch { /* ignore */ }
 			reject(err);
 		};
+		timer = setTimeout(() => fail(new Error(`ack timeout after ${timeoutMs}ms`)), timeoutMs);
+		try { (timer as any).unref?.(); } catch { /* ignore */ }
 		sock.once("error", fail);
 		sock.once("connect", async () => {
 			try {
@@ -476,6 +488,10 @@ function sendEnvelope(endpoint: string, envelope: Envelope | Pong | { type: stri
 				try { sock.end(); } catch { /* ignore */ }
 				if (settled) return;
 				settled = true;
+				if (timer) {
+					try { clearTimeout(timer); } catch { /* ignore */ }
+					timer = null;
+				}
 				if (parsed && parsed.type === "nack") {
 					reject(new Error(parsed.error || "nack"));
 				} else {
@@ -581,6 +597,7 @@ export default function (pi: ExtensionAPI) {
 	let displayProject: string | null = null;
 	let currentCtx: ExtensionContext | null = null;
 	let currentInbound: InboundContext | null = null;
+	let shuttingDown = false;
 
 	// Phase A stub handlers — each just acks valid envelopes. Phase B replaces these.
 	function ackOk(socket: net.Socket, msg_id: string): void {
@@ -769,6 +786,10 @@ export default function (pi: ExtensionAPI) {
 	// ━━ session_start ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 	pi.on("session_start", async (_event, ctx) => {
 		applyExtensionDefaults(import.meta.url, ctx);
+		if (server || identity) {
+			await cleanShutdown();
+		}
+		shuttingDown = false;
 		currentCtx = ctx;
 
 		// 1. Resolve identity from CLI flags > frontmatter > defaults.
@@ -1303,11 +1324,8 @@ export default function (pi: ExtensionAPI) {
 				response_schema: (params.response_schema as object | undefined) ?? null,
 			};
 
-			// Send the envelope synchronously and wait for the receiver's ack.
-			await sendEnvelope(target.endpoint, env);
-
-			// Register a pending entry whose promise the receiver-side handleResponse
-			// (or the timeout below) will settle.
+			// Register the pending entry before send. A fast receiver can ack and
+			// respond before coms_send returns to the caller.
 			let resolveFn!: (v: { response?: any; error?: string | null }) => void;
 			let rejectFn!: (e: Error) => void;
 			const promise = new Promise<{ response?: any; error?: string | null }>((res, rej) => {
@@ -1330,6 +1348,18 @@ export default function (pi: ExtensionAPI) {
 			// Don't keep the event loop alive solely for this timer.
 			try { (entry.timer as any).unref?.(); } catch { /* ignore */ }
 			pendingReplies.set(msg_id, entry);
+
+			// Send the envelope synchronously and wait for the receiver's ack.
+			try {
+				await sendEnvelope(target.endpoint, env);
+			} catch (err) {
+				pendingReplies.delete(msg_id);
+				if (entry.timer) {
+					try { clearTimeout(entry.timer); } catch { /* ignore */ }
+					entry.timer = null;
+				}
+				throw err;
+			}
 
 			try {
 				pi.appendEntry("coms-log", {
@@ -1567,7 +1597,6 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	// ━━ Clean shutdown ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-	let shuttingDown = false;
 	async function cleanShutdown(): Promise<void> {
 		if (shuttingDown) return;
 		shuttingDown = true;
@@ -1588,6 +1617,17 @@ export default function (pi: ExtensionAPI) {
 		}
 		if (currentCtx?.hasUI) {
 			try { currentCtx.ui.setWidget("coms-pool", undefined); } catch { /* ignore */ }
+		}
+		for (const [msgId, entry] of pendingReplies.entries()) {
+			if (entry.timer) {
+				try { clearTimeout(entry.timer); } catch { /* ignore */ }
+				entry.timer = null;
+			}
+			if (!entry.result) {
+				entry.result = { error: "shutdown" };
+				try { entry.resolve(entry.result); } catch { /* ignore */ }
+			}
+			pendingReplies.delete(msgId);
 		}
 	}
 

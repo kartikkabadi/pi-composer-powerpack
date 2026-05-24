@@ -1,0 +1,18 @@
+allowBuilds:
+  '@google/genai': true
+  koffi: true
+  protobufjs: true
+  sqlite3: true
+minimumReleaseAgeExclude:
+  - pi-cursor-sdk
+
+overrides:
+  sqlite3: 6.0.1
+  tar: 7.5.11
+  undici: 7.25.0
+
+onlyBuiltDependencies:
+  - "@google/genai"
+  - koffi
+  - protobufjs
+  - sqlite3
