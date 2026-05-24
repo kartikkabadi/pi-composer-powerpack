@@ -2,7 +2,7 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { parseMarkdownFrontmatter } from "./frontmatter.ts";
-import { piAgentHome } from "./subagentConfig.ts";
+import { piAgentHome } from "../powerpackPaths.ts";
 
 export type AgentDef = {
 	name: string;
@@ -102,6 +102,14 @@ function collectMarkdownFiles(dir: string, includePiPiSubdir: boolean): string[]
 	return paths;
 }
 
+/**
+ * Scan agent definitions from multiple directories.
+ *
+ * Precedence (first-seen wins): project agents (`.pi/agents`, `.claude/agents`,
+ * `agents/`) → global (`~/.pi/agent/agents/`) → package (`agents/` bundled).
+ * This means a project-level agent with the same name silently overrides a
+ * package-bundled or global definition.
+ */
 export function scanAgents(options: {
 	cwd: string;
 	packageAgentsDir: string;
@@ -110,11 +118,11 @@ export function scanAgents(options: {
 	const { cwd, packageAgentsDir, includePiPiSubdir = true } = options;
 	const agentHome = piAgentHome();
 	const dirs = [
-		join(cwd, "agents"),
-		join(cwd, ".claude", "agents"),
 		join(cwd, ".pi", "agents"),
-		packageAgentsDir,
+		join(cwd, ".claude", "agents"),
+		join(cwd, "agents"),
 		join(agentHome, "agents"),
+		packageAgentsDir,
 	];
 
 	const agents = new Map<string, AgentDef>();
