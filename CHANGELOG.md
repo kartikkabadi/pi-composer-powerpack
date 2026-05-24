@@ -8,6 +8,12 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- agent-chain pipeline widget stays local
+
+## [0.2.12] - 2026-05-24
+
+### Changed
+
 - agent-chain pipeline widget unchanged (pipeline arrows stay in agent-chain.ts)
 ## [0.2.11] - 2026-05-25
 
