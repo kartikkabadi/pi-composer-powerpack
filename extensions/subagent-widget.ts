@@ -18,7 +18,7 @@ import { Container, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { spawnPiJsonProcess } from "./lib/piJsonSubprocess.ts";
+import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome } from "./powerpackPaths.ts";
 
@@ -116,7 +116,7 @@ export default function (pi: ExtensionAPI) {
 		ctx: any,
 	): Promise<void> {
 		state.textChunks = [];
-		return spawnPiJsonProcess(
+		return runSpecialistSpawn(
 			import.meta.url,
 			{
 				task: prompt,

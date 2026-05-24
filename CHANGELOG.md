@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-05-24
+
+### Changed
+
+- specialistSpawn lib and subagent-widget migration
 ## [0.2.3] - 2026-05-25
 
 ### Added
