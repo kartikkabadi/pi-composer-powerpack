@@ -10,7 +10,10 @@
       "./extensions/cursor-sdk.ts",
       "./extensions/damage-control-continue.ts",
       "./extensions/subagent-widget.ts",
-      "./extensions/coms.ts"
+      "./extensions/coms.ts",
+      "./extensions/agent-chain.ts",
+      "./extensions/agent-team.ts",
+      "./extensions/pi-pi.ts"
     ],
     "themes": [
       "./themes"
@@ -18,19 +21,30 @@
   },
   "files": [
     "agents",
-    "bin",
     "config",
     "extensions",
     "themes",
-    "install.sh",
     "README.md",
     "LICENSE"
   ],
   "dependencies": {
+    "pi-cursor-sdk": "0.1.16",
     "yaml": "2.9.0"
   },
+  "overrides": {
+    "sqlite3": "6.0.1",
+    "tar": "7.5.11",
+    "undici": "7.25.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "sqlite3": "6.0.1",
+      "tar": "7.5.11",
+      "undici": "7.25.0"
+    }
+  },
   "scripts": {
-    "check:secrets": "bash -lc '! rg -n \"(api[_-]?key|token|secret|password|bearer|sk-)\\\\s*[:=]\" . --glob \"!package-lock.json\" --glob \"!pnpm-lock.yaml\"'",
-    "smoke:chain": "PI_CURSOR_PI_TOOL_BRIDGE=0 pi --no-context-files --append-system-prompt ~/.pi/agent/AGENTS.md --model cursor/composer-2.5 --cursor-fast --no-extensions -e ./extensions/cursor-sdk.ts -e ./extensions/agent-chain.ts -e ./extensions/damage-control-continue.ts --no-session --no-tools -p 'Reply exactly OK'"
+    "check:secrets": "bash -lc '! rg -n \"(api[_-]?key|token|secret|password|bearer|sk-)\\\\s*[:=]\" . --glob \"!package-lock.json\" --glob \"!pnpm-lock.yaml\" --glob \"!node_modules\"'",
+    "pack:dry": "npm pack --dry-run --ignore-scripts"
   }
 }

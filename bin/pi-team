@@ -1,4 +1,0 @@
-#!/bin/zsh
-POWERPACK="${PI_POWERPACK_HOME:-$HOME/.pi/agent/npm/node_modules/pi-composer-powerpack}"
-exec "${PI_POWERPACK_PI:-$HOME/.local/bin/pi}" --model cursor/composer-2.5 --cursor-fast \
-  -e "$POWERPACK/extensions/agent-team.ts" "$@"

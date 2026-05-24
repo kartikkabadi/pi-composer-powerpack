@@ -1,3 +1,1 @@
-import cursorSdk from "pi-cursor-sdk/src/index.ts";
-
-export default cursorSdk;
+export { default } from "pi-cursor-sdk/src/index.ts";

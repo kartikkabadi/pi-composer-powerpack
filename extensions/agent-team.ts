@@ -24,11 +24,13 @@ import { spawn } from "child_process";
 import { readdirSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { join, resolve } from "path";
 import { applyExtensionDefaults } from "./themeMap.ts";
+import { powerpackAgentsDir, powerpackCursorSdkExtension, resolvePiBinary } from "./powerpackPaths.ts";
 
 const PI_AGENT_HOME = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME || "", ".pi", "agent");
 const CURSOR_MODEL = process.env.PI_SUBAGENT_MODEL || "cursor/composer-2.5";
-const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || join(PI_AGENT_HOME, "npm", "node_modules", "pi-cursor-sdk", "src", "index.ts");
+const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || powerpackCursorSdkExtension(import.meta.url);
 const CURSOR_FAST_FLAGS = process.env.PI_SUBAGENT_CURSOR_FAST === "0" ? [] : ["--cursor-fast"];
+const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
 // ── Types ────────────────────────────────────────
 
@@ -114,6 +116,7 @@ function scanAgentDirs(cwd: string): AgentDef[] {
 		join(cwd, "agents"),
 		join(cwd, ".claude", "agents"),
 		join(cwd, ".pi", "agents"),
+		PACKAGE_AGENTS_DIR,
 		join(PI_AGENT_HOME, "agents"),
 	];
 
@@ -145,10 +148,12 @@ export default function (pi: ExtensionAPI) {
 	let allAgentDefs: AgentDef[] = [];
 	let teams: Record<string, string[]> = {};
 	let activeTeamName = "";
-	let gridCols = 2;
-	let widgetCtx: any;
-	let sessionDir = "";
-	let contextWindow = 0;
+		let gridCols = 2;
+		let widgetCtx: any;
+		let sessionDir = "";
+		let contextWindow = 0;
+		let teamMode = false;
+		let allToolNames: string[] = [];
 
 	function loadAgents(cwd: string) {
 		// Create session storage dir
@@ -161,18 +166,31 @@ export default function (pi: ExtensionAPI) {
 		allAgentDefs = scanAgentDirs(cwd);
 
 		// Load teams from project config first, then the Pi-global curated setup.
-		const projectTeamsPath = join(cwd, ".pi", "agents", "teams.yaml");
-		const globalTeamsPath = join(PI_AGENT_HOME, "agents", "teams.yaml");
-		const teamsPath = existsSync(projectTeamsPath) ? projectTeamsPath : globalTeamsPath;
-		if (existsSync(teamsPath)) {
-			try {
-				teams = parseTeamsYaml(readFileSync(teamsPath, "utf-8"));
-			} catch {
-				teams = {};
-			}
-		} else {
+			const packageTeamsPath = join(PACKAGE_AGENTS_DIR, "teams.yaml");
+			const globalTeamsPath = join(PI_AGENT_HOME, "agents", "teams.yaml");
+			const projectTeamsPath = join(cwd, ".pi", "agents", "teams.yaml");
 			teams = {};
-		}
+			if (existsSync(packageTeamsPath)) {
+				try {
+					teams = { ...teams, ...parseTeamsYaml(readFileSync(packageTeamsPath, "utf-8")) };
+				} catch {
+					// keep any teams loaded so far
+				}
+			}
+			if (existsSync(globalTeamsPath)) {
+				try {
+					teams = { ...teams, ...parseTeamsYaml(readFileSync(globalTeamsPath, "utf-8")) };
+				} catch {
+					// keep package teams
+				}
+			}
+			if (existsSync(projectTeamsPath)) {
+				try {
+					teams = { ...teams, ...parseTeamsYaml(readFileSync(projectTeamsPath, "utf-8")) };
+				} catch {
+					// keep package/global teams
+				}
+			}
 
 		// If no teams defined, create a default "all" team
 		if (Object.keys(teams).length === 0) {
@@ -190,7 +208,7 @@ export default function (pi: ExtensionAPI) {
 			const def = defsByName.get(member.toLowerCase());
 			if (!def) continue;
 			const key = def.name.toLowerCase().replace(/\s+/g, "-");
-			const sessionFile = join(sessionDir, `${key}.json`);
+			const sessionFile = join(sessionDir, `team-${key}.json`);
 			agentStates.set(def.name.toLowerCase(), {
 				def,
 				status: "idle",
@@ -347,7 +365,7 @@ export default function (pi: ExtensionAPI) {
 
 		// Session file for this agent
 		const agentKey = state.def.name.toLowerCase().replace(/\s+/g, "-");
-		const agentSessionFile = join(sessionDir, `${agentKey}.json`);
+			const agentSessionFile = join(sessionDir, `team-${agentKey}.json`);
 
 		// Build args — first run creates session, subsequent runs resume
 		const args = [
@@ -373,7 +391,7 @@ export default function (pi: ExtensionAPI) {
 		const textChunks: string[] = [];
 
 		return new Promise((resolve) => {
-			const proc = spawn("pi", args, {
+				const proc = spawn(resolvePiBinary(), args, {
 				stdio: ["ignore", "pipe", "pipe"],
 				env: { ...process.env },
 			});
@@ -448,7 +466,7 @@ export default function (pi: ExtensionAPI) {
 
 				ctx.ui.notify(
 					`${displayName(state.def.name)} ${state.status} in ${Math.round(state.elapsed / 1000)}s`,
-					state.status === "done" ? "success" : "error"
+					state.status === "done" ? "info" : "error"
 				);
 
 				resolve({
@@ -485,6 +503,13 @@ export default function (pi: ExtensionAPI) {
 
 		async execute(_toolCallId, params, _signal, onUpdate, ctx) {
 			const { agent, task } = params as { agent: string; task: string };
+
+			if (!teamMode) {
+				return {
+					content: [{ type: "text", text: "Agent Team is installed but inactive. Use /agents-mode or /agents-team to dispatch specialist agents." }],
+					details: { agent, task, status: "inactive", elapsed: 0, exitCode: 1, fullOutput: "" },
+				};
+			}
 
 			try {
 				if (onUpdate) {
@@ -568,11 +593,74 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
-	// ── Commands ─────────────────────────────────
+		// ── Commands ─────────────────────────────────
 
-	pi.registerCommand("agents-team", {
-		description: "Select a team to work with",
-		handler: async (_args, ctx) => {
+		function installFooter(ctx: any) {
+			ctx.ui.setFooter((_tui: any, theme: any, _footerData: any) => ({
+				dispose: () => {},
+				invalidate() {},
+				render(width: number): string[] {
+					const model = ctx.model?.id || "no-model";
+					const usage = ctx.getContextUsage();
+					const pct = usage ? usage.percent : 0;
+					const filled = Math.round(pct / 10);
+					const bar = "#".repeat(filled) + "-".repeat(10 - filled);
+
+					const left = theme.fg("dim", ` ${model}`) +
+						theme.fg("muted", " · ") +
+						theme.fg("accent", activeTeamName);
+					const right = theme.fg("dim", `[${bar}] ${Math.round(pct)}% `);
+					const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
+
+					return [truncateToWidth(left + pad + right, width)];
+				},
+			}));
+		}
+
+		function enableTeamMode(ctx: any) {
+			teamMode = true;
+			pi.setActiveTools(["dispatch_agent"]);
+			ctx.ui.setStatus("agent-team", `Team: ${activeTeamName} (${agentStates.size})`);
+			updateWidget();
+			installFooter(ctx);
+		}
+
+		function disableTeamMode(ctx: any) {
+			teamMode = false;
+			if (allToolNames.length > 0) {
+				pi.setActiveTools(allToolNames);
+			}
+			ctx.ui.setStatus("agent-team", undefined);
+			ctx.ui.setWidget("agent-team", undefined);
+			ctx.ui.setFooter(undefined);
+		}
+
+		pi.registerCommand("agents-mode", {
+			description: "Activate Agent Team dispatcher mode",
+			handler: async (_args, ctx) => {
+				widgetCtx = ctx;
+				if (agentStates.size === 0) {
+					ctx.ui.notify("No agents loaded for the active team.", "warning");
+					return;
+				}
+				enableTeamMode(ctx);
+				const members = Array.from(agentStates.values()).map(s => displayName(s.def.name)).join(", ");
+				ctx.ui.notify(`Agent Team mode: ${activeTeamName} (${members})`, "info");
+			},
+		});
+
+		pi.registerCommand("agents-off", {
+			description: "Deactivate Agent Team dispatcher mode",
+			handler: async (_args, ctx) => {
+				widgetCtx = ctx;
+				disableTeamMode(ctx);
+				ctx.ui.notify("Agent Team mode off.", "info");
+			},
+		});
+
+		pi.registerCommand("agents-team", {
+			description: "Select a team to work with",
+			handler: async (_args, ctx) => {
 			widgetCtx = ctx;
 			const teamNames = Object.keys(teams);
 			if (teamNames.length === 0) {
@@ -588,14 +676,13 @@ export default function (pi: ExtensionAPI) {
 			const choice = await ctx.ui.select("Select Team", options);
 			if (choice === undefined) return;
 
-			const idx = options.indexOf(choice);
-			const name = teamNames[idx];
-			activateTeam(name);
-			updateWidget();
-			ctx.ui.setStatus("agent-team", `Team: ${name} (${agentStates.size})`);
-			ctx.ui.notify(`Team: ${name} — ${Array.from(agentStates.values()).map(s => displayName(s.def.name)).join(", ")}`, "info");
-		},
-	});
+				const idx = options.indexOf(choice);
+				const name = teamNames[idx];
+				activateTeam(name);
+				enableTeamMode(ctx);
+				ctx.ui.notify(`Team: ${name} — ${Array.from(agentStates.values()).map(s => displayName(s.def.name)).join(", ")}`, "info");
+			},
+		});
 
 	pi.registerCommand("agents-list", {
 		description: "List all loaded agents",
@@ -636,9 +723,11 @@ export default function (pi: ExtensionAPI) {
 
 	// ── System Prompt Override ───────────────────
 
-	pi.on("before_agent_start", async (_event, _ctx) => {
-		// Build dynamic agent catalog from active team only
-		const agentCatalog = Array.from(agentStates.values())
+		pi.on("before_agent_start", async (_event, _ctx) => {
+			if (!teamMode) return {};
+
+			// Build dynamic agent catalog from active team only
+			const agentCatalog = Array.from(agentStates.values())
 			.map(s => `### ${displayName(s.def.name)}\n**Dispatch as:** \`${s.def.name}\`\n${s.def.description}\n**Tools:** ${s.def.tools}`)
 			.join("\n\n");
 
@@ -683,16 +772,18 @@ ${agentCatalog}`,
 			widgetCtx.ui.setWidget("agent-team", undefined);
 		}
 		widgetCtx = _ctx;
-		contextWindow = _ctx.model?.contextWindow || 0;
+			contextWindow = _ctx.model?.contextWindow || 0;
+			allToolNames = pi.getAllTools().map((t) => t.name);
 
-		// Wipe old agent session files so subagents start fresh
-		const sessDir = join(_ctx.cwd, ".pi", "agent-sessions");
-		if (existsSync(sessDir)) {
-			for (const f of readdirSync(sessDir)) {
-				if (f.endsWith(".json")) {
-					try { unlinkSync(join(sessDir, f)); } catch {}
+			// Wipe old team session files so team subagents start fresh without
+			// touching chain sessions or other project-owned JSON.
+			const sessDir = join(_ctx.cwd, ".pi", "agent-sessions");
+			if (existsSync(sessDir)) {
+				for (const f of readdirSync(sessDir)) {
+					if (f.startsWith("team-") && f.endsWith(".json")) {
+						try { unlinkSync(join(sessDir, f)); } catch {}
+					}
 				}
-			}
 		}
 
 		loadAgents(_ctx.cwd);
@@ -703,40 +794,17 @@ ${agentCatalog}`,
 			activateTeam(teamNames[0]);
 		}
 
-		// Lock down to dispatcher-only (tool already registered at top level)
-		pi.setActiveTools(["dispatch_agent"]);
-
-		_ctx.ui.setStatus("agent-team", `Team: ${activeTeamName} (${agentStates.size})`);
-		const members = Array.from(agentStates.values()).map(s => displayName(s.def.name)).join(", ");
-		_ctx.ui.notify(
-			`Team: ${activeTeamName} (${members})\n` +
-			`Team sets loaded from: .pi/agents/teams.yaml\n\n` +
-			`/agents-team          Select a team\n` +
-			`/agents-list          List active agents and status\n` +
-			`/agents-grid <1-6>    Set grid column count`,
-			"info",
-		);
-		updateWidget();
-
-		// Footer: model | team | context bar
-		_ctx.ui.setFooter((_tui, theme, _footerData) => ({
-			dispose: () => {},
-			invalidate() {},
-			render(width: number): string[] {
-				const model = _ctx.model?.id || "no-model";
-				const usage = _ctx.getContextUsage();
-				const pct = usage ? usage.percent : 0;
-				const filled = Math.round(pct / 10);
-				const bar = "#".repeat(filled) + "-".repeat(10 - filled);
-
-				const left = theme.fg("dim", ` ${model}`) +
-					theme.fg("muted", " · ") +
-					theme.fg("accent", activeTeamName);
-				const right = theme.fg("dim", `[${bar}] ${Math.round(pct)}% `);
-				const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
-
-				return [truncateToWidth(left + pad + right, width)];
-			},
-		}));
-	});
-}
+			if (process.env.PI_POWERPACK_BOOT_NOTICES === "1") {
+				const members = Array.from(agentStates.values()).map(s => displayName(s.def.name)).join(", ");
+				_ctx.ui.notify(
+					`Agent Team ready: ${activeTeamName} (${members})\n` +
+					`/agents-mode          Activate team dispatcher\n` +
+					`/agents-off           Deactivate team dispatcher\n` +
+					`/agents-team          Select a team\n` +
+					`/agents-list          List active agents and status\n` +
+					`/agents-grid <1-6>    Set grid column count`,
+					"info",
+				);
+			}
+		});
+	}

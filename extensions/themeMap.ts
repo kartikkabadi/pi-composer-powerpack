@@ -1,14 +1,13 @@
 /**
  * themeMap.ts — Per-extension default theme assignments
  *
- * Themes live in .pi/themes/ and are mapped by extension filename (no extension).
- * Each extension calls applyExtensionTheme(import.meta.url, ctx) in its session_start
- * hook to automatically load its designated theme on boot.
+ * Themes are shipped as package assets. Current Pi releases install those theme
+ * files, but extensions do not have a stable public API for switching the active
+ * theme at session boot. This module keeps the theme preference map as metadata
+ * and applies only the terminal title.
  *
- * Available themes (.pi/themes/):
- *   catppuccin-mocha · cyberpunk · dracula · everforest · gruvbox
- *   midnight-ocean   · nord      · ocean-breeze · rose-pine
- *   synthwave        · tokyo-night
+ * Available package theme:
+ *   mono-black
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -50,15 +49,9 @@ function extensionName(fileUrl: string): string {
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
-/**
- * Apply the mapped theme for an extension on session boot.
- *
- * @param fileUrl   Pass `import.meta.url` from the calling extension file.
- * @param ctx       The ExtensionContext from the session_start handler.
- * @returns         true if the theme was applied successfully, false otherwise.
- */
+/** Theme switching is intentionally a no-op until Pi exposes a stable API. */
 export function applyExtensionTheme(_fileUrl: string, _ctx: ExtensionContext): boolean {
-	return true;
+	return false;
 }
 // ── Title ──────────────────────────────────────────────────────────────────
 
@@ -101,8 +94,7 @@ function applyExtensionTitle(ctx: ExtensionContext): void {
 // ── Combined default ───────────────────────────────────────────────────────
 
 /**
- * Apply both the mapped theme AND the terminal title for an extension.
- * Drop-in replacement for applyExtensionTheme — call this in every session_start.
+ * Apply per-extension defaults that are safe in installed packages.
  *
  * Usage:
  *   import { applyExtensionDefaults } from "./themeMap.ts";

@@ -20,7 +20,7 @@
  *   /direct            — full tools for quick one-off work
  *   /chain-run <task>  — hint to run the active chain on a task
  *
- * Usage: pi-chain  (or pi --no-extensions -e extensions/agent-chain.ts)
+ * Usage: /chain-mode after installing the package with pi install.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -30,11 +30,13 @@ import { spawn } from "child_process";
 import { readFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from "fs";
 import { join, resolve } from "path";
 import { applyExtensionDefaults } from "./themeMap.ts";
+import { powerpackAgentsDir, powerpackCursorSdkExtension, resolvePiBinary } from "./powerpackPaths.ts";
 
 const PI_AGENT_HOME = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME || "", ".pi", "agent");
 const CURSOR_MODEL = process.env.PI_SUBAGENT_MODEL || "cursor/composer-2.5";
-const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || join(PI_AGENT_HOME, "npm", "node_modules", "pi-cursor-sdk", "src", "index.ts");
+const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || powerpackCursorSdkExtension(import.meta.url);
 const CURSOR_FAST_FLAGS = process.env.PI_SUBAGENT_CURSOR_FAST === "0" ? [] : ["--cursor-fast"];
+const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
 // ── Types ────────────────────────────────────────
 
@@ -187,6 +189,7 @@ function scanAgentDirs(cwd: string): Map<string, AgentDef> {
 		join(cwd, "agents"),
 		join(cwd, ".claude", "agents"),
 		join(cwd, ".pi", "agents"),
+		PACKAGE_AGENTS_DIR,
 		join(PI_AGENT_HOME, "agents"),
 	];
 
@@ -222,11 +225,11 @@ export default function (pi: ExtensionAPI) {
 	// Per-step state for the active chain
 	let stepStates: StepState[] = [];
 	let pendingReset = false;
-	let defaultChainHint: string | undefined;
-	let directMode = false;
-	let allToolNames: string[] = [];
-	let lastUserPrompt = "";
-	let chainRanThisTurn = false;
+		let defaultChainHint: string | undefined;
+		let chainMode = false;
+		let allToolNames: string[] = [];
+		let lastUserPrompt = "";
+		let chainRanThisTurn = false;
 
 	function loadChains(cwd: string) {
 		sessionDir = join(cwd, ".pi", "agent-sessions");
@@ -242,20 +245,31 @@ export default function (pi: ExtensionAPI) {
 			agentSessions.set(key, existsSync(sessionFile) ? sessionFile : null);
 		}
 
-		const projectChainPath = join(cwd, ".pi", "agents", "agent-chain.yaml");
-		const globalChainPath = join(PI_AGENT_HOME, "agents", "agent-chain.yaml");
-		let merged: ChainDef[] = [];
-		defaultChainHint = undefined;
+			const packageChainPath = join(PACKAGE_AGENTS_DIR, "agent-chain.yaml");
+			const globalChainPath = join(PI_AGENT_HOME, "agents", "agent-chain.yaml");
+			const projectChainPath = join(cwd, ".pi", "agents", "agent-chain.yaml");
+			let merged: ChainDef[] = [];
+			defaultChainHint = undefined;
 
-		if (existsSync(globalChainPath)) {
-			try {
-				const parsed = parseChainFile(readFileSync(globalChainPath, "utf-8"));
-				merged = parsed.chains;
-				defaultChainHint = parsed.defaultChain;
-			} catch {
-				merged = [];
+			if (existsSync(packageChainPath)) {
+				try {
+					const parsed = parseChainFile(readFileSync(packageChainPath, "utf-8"));
+					merged = parsed.chains;
+					defaultChainHint = parsed.defaultChain;
+				} catch {
+					merged = [];
+				}
 			}
-		}
+
+			if (existsSync(globalChainPath)) {
+				try {
+					const parsed = parseChainFile(readFileSync(globalChainPath, "utf-8"));
+					merged = mergeChains(merged, parsed.chains);
+					defaultChainHint = parsed.defaultChain;
+				} catch {
+					// keep package chains
+				}
+			}
 
 		if (existsSync(projectChainPath)) {
 			try {
@@ -286,21 +300,25 @@ export default function (pi: ExtensionAPI) {
 			"warning",
 		);
 		return chains[0];
-	}
-
-	function applyChainMode(ctx?: any) {
-		directMode = false;
-		pi.setActiveTools(["run_chain"]);
-		ctx?.ui?.setStatus("agent-chain", `Chain mode · ${activeChain?.name ?? "?"}`);
-	}
-
-	function applyDirectMode(ctx?: any) {
-		directMode = true;
-		if (allToolNames.length > 0) {
-			pi.setActiveTools(allToolNames);
 		}
-		ctx?.ui?.setStatus("agent-chain", "Direct mode (full tools)");
-	}
+
+		function applyChainMode(ctx?: any) {
+			chainMode = true;
+			pi.setActiveTools(["run_chain"]);
+			ctx?.ui?.setStatus("agent-chain", `Chain mode · ${activeChain?.name ?? "?"}`);
+			updateWidget();
+			installFooter(ctx);
+		}
+
+		function applyDirectMode(ctx?: any) {
+			chainMode = false;
+			if (allToolNames.length > 0) {
+				pi.setActiveTools(allToolNames);
+			}
+			ctx?.ui?.setStatus("agent-chain", undefined);
+			ctx?.ui?.setWidget("agent-chain", undefined);
+			ctx?.ui?.setFooter(undefined);
+		}
 
 	function buildDispatcherSystemPrompt(): string {
 		if (!activeChain) return "";
@@ -494,7 +512,7 @@ ${agentCatalog}
 		const state = stepStates[stepIndex];
 
 		return new Promise((resolve) => {
-			const proc = spawn("pi", args, {
+				const proc = spawn(resolvePiBinary(), args, {
 				stdio: ["ignore", "pipe", "pipe"],
 				env: { ...process.env },
 			});
@@ -645,6 +663,13 @@ ${agentCatalog}
 
 		async execute(_toolCallId, params, _signal, onUpdate, ctx) {
 			const { task } = params as { task: string };
+
+			if (!chainMode) {
+				return {
+					content: [{ type: "text", text: "Agent Chain is installed but inactive. Use /chain-mode or /chain-run <task> to run a pipeline." }],
+					details: { chain: activeChain?.name, task, status: "inactive", elapsed: 0, fullOutput: "" },
+				};
+			}
 
 			if (onUpdate) {
 				onUpdate({
@@ -834,18 +859,18 @@ ${agentCatalog}
 			updateWidget();
 		}
 
-		if (!activeChain) return {};
-		if (directMode) return {};
+			if (!activeChain) return {};
+			if (!chainMode) return {};
 
-		return { systemPrompt: buildDispatcherSystemPrompt() };
-	});
+			return { systemPrompt: buildDispatcherSystemPrompt() };
+		});
 
 	pi.on("tool_execution_start", async (event) => {
 		if (event.toolName === "run_chain") chainRanThisTurn = true;
 	});
 
-	pi.on("agent_end", async (_event, ctx) => {
-		if (directMode || !activeChain || chainRanThisTurn) return;
+		pi.on("agent_end", async (_event, ctx) => {
+			if (!chainMode || !activeChain || chainRanThisTurn) return;
 		if (!lastUserPrompt.trim()) return;
 
 		ctx.ui.notify(
@@ -887,43 +912,45 @@ ${agentCatalog}
 			}
 		}
 
-		// Reload chains + clear agentSessions map (all agents start fresh)
-		loadChains(_ctx.cwd);
+			// Reload chains + clear agentSessions map (all agents start fresh)
+			loadChains(_ctx.cwd);
 
 		if (chains.length === 0) {
 			_ctx.ui.notify("No chains found in .pi/agents/agent-chain.yaml", "warning");
 			return;
 		}
 
-		allToolNames = pi.getAllTools().map((t) => t.name);
+			allToolNames = pi.getAllTools().map((t) => t.name);
 
-		const defaultChain = resolveDefaultChain(_ctx);
-		if (defaultChain) activateChain(defaultChain);
+			const defaultChain = resolveDefaultChain(_ctx);
+			if (defaultChain) activateChain(defaultChain);
 
-		applyChainMode(_ctx);
+			if (process.env.PI_POWERPACK_BOOT_NOTICES === "1") {
+				const flow = activeChain!.steps.map(s => displayName(s.agent)).join(" → ");
+				_ctx.ui.notify(
+					`Agent Chain ready: ${activeChain!.name}\n${activeChain!.description}\n${flow}\n\n` +
+					`Use /chain-mode or /chain-run <task> when you want the dispatcher pipeline.\n\n` +
+					`/chain             Switch chain\n` +
+					`/chain-list        List chains\n` +
+					`/chain-mode        Dispatcher mode\n` +
+					`/direct            Full tools\n` +
+					`/chain-run <task>  Run pipeline on task`,
+					"info",
+				);
+			}
+		});
 
-		const flow = activeChain!.steps.map(s => displayName(s.agent)).join(" → ");
-		_ctx.ui.notify(
-			`Chain: ${activeChain!.name}\n${activeChain!.description}\n${flow}\n\n` +
-			`Mode: dispatcher (run_chain only). Use /direct for quick one-off work.\n\n` +
-			`/chain             Switch chain\n` +
-			`/chain-list        List chains\n` +
-			`/chain-mode        Dispatcher mode\n` +
-			`/direct            Full tools\n` +
-			`/chain-run <task>  Run pipeline on task`,
-			"info",
-		);
-
-		// Footer: model | chain name | context bar
-		_ctx.ui.setFooter((_tui, theme, _footerData) => ({
-			dispose: () => {},
-			invalidate() {},
-			render(width: number): string[] {
-				const model = _ctx.model?.id || "no-model";
-				const usage = _ctx.getContextUsage();
-				const pct = usage ? usage.percent : 0;
-				const filled = Math.round(pct / 10);
-				const bar = "#".repeat(filled) + "-".repeat(10 - filled);
+		function installFooter(ctx: any) {
+			if (!ctx) return;
+			ctx.ui.setFooter((_tui: any, theme: any, _footerData: any) => ({
+				dispose: () => {},
+				invalidate() {},
+				render(width: number): string[] {
+					const model = ctx.model?.id || "no-model";
+					const usage = ctx.getContextUsage();
+					const pct = usage ? usage.percent : 0;
+					const filled = Math.round(pct / 10);
+					const bar = "#".repeat(filled) + "-".repeat(10 - filled);
 
 				const chainLabel = activeChain
 					? theme.fg("accent", activeChain.name)
@@ -935,8 +962,8 @@ ${agentCatalog}
 				const right = theme.fg("dim", `[${bar}] ${Math.round(pct)}% `);
 				const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
 
-				return [truncateToWidth(left + pad + right, width)];
-			},
-		}));
-	});
-}
+					return [truncateToWidth(left + pad + right, width)];
+				},
+			}));
+		}
+	}

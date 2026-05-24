@@ -1,27 +1,25 @@
 # Pi Composer Powerpack — AGENTS.md
 
-Guide + curated assets repo for a polished Pi + Cursor Composer 2.5 + multi-agent experience (launchers, extensions, agent prompts, mono-black theme, etc.).
+Guide + curated assets repo for a polished Pi + Cursor Composer 2.5 + multi-agent experience (extensions, agent prompts, mono-black theme, etc.).
 
-**This is not a script you run.** It is a guide and whole Git repo of things you (or an agent) can use. See updated README for the exact agent-feedable instructions ("feed this repo... ask the 10 coverage questions first... walk through copy-paste setup").
+**Install path is Pi's GitHub installer only.** Do not reintroduce `install.sh`, shell launchers, or a separate npm package setup flow unless explicitly requested by the maintainer.
 
 ## Working agreements (guide-first + assets)
 
-- Keep README and key assets (bin/, extensions/, agents/, themes/, config/, install.sh) copy-paste friendly and high-signal for agents and humans.
+- Keep README and key assets (extensions/, agents/, themes/, config/) copy-paste friendly and high-signal for agents and humans.
 - No secrets, Pi session JSONL, auth files, memory DBs, sockets, or private machine-wide configs in the repo (enforce via existing `npm run check:secrets` + manual).
-- Respect Pi version policy (>=0.75.3) and pi-cursor-sdk reqs documented in README.
+- Keep `package.json`'s `pi` field self-contained for GitHub installs.
 - Use `sfw` (Socket Firewall) for any pnpm/npm/bun operations (per global machine rules).
 - Delete before adding. Smallest change that gives real feedback. Prefer `rg` + project package manager.
-- Guide purity: edits must serve the "agent walks user through intent questions then setup using these assets" flow (per user clarification 2026-05).
-- Cross-link accuracy: keep references to sibling Foundry repo (the rock-solid runtime) up to date.
+- Guide purity: edits must serve the GitHub-installed Pi powerpack flow.
 
 ## Review guidelines
 
 - Flag any addition of secrets, private data, or large binary assets as P0.
-- Verify agent-feed experience after README or asset changes (manually or via test agent prompt).
+- Verify package install and startup experience after README, manifest, or extension changes.
 - Extensions/agents/: ensure prompts and hooks remain focused on intent/product-boundary (not low-level impl unless repo convention answers it).
-- Before GH release or publish: run secret check + full local smoke (per README).
-- Keep package.json "pi" field and "files" accurate for the guide/assets model (no heavy dep evolution without explicit revival decision).
-- Test changes against the Local Smoke Test in README.
+- Before GH release or publish: run secret check, dry pack, and an isolated Pi install smoke.
+- Keep package.json "pi" field and "files" accurate for the GitHub installer model.
 
 ## Integration with Cascade / Superpowers Skills
 
@@ -38,7 +36,7 @@ When working on this project, invoke these skills (read their SKILL.md first):
 
 ## Global + Nearest AGENTS
 
-Inherits all durable rules from `/Users/user/Agents.md` (scope exact, protect secrets, nearest AGENTS/docs/lockfiles, opensrc for deps, main gh=kartikkabadi, direct/concise, verify before claim, etc.).
+Inherits all global durable rules (scope exact, protect secrets, nearest AGENTS/docs/lockfiles, opensrc for deps, direct/concise, verify before claim, etc.).
 
 Also reference nearest in sibling projects (e.g. foundry/AGENTS.md once added, or clawhip-port/AGENTS.md for patterns).
 

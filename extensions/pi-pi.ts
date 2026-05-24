@@ -22,11 +22,13 @@ import { spawn } from "child_process";
 import { readdirSync, readFileSync, existsSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 import { applyExtensionDefaults } from "./themeMap.ts";
+import { powerpackAgentsDir, powerpackCursorSdkExtension, resolvePiBinary } from "./powerpackPaths.ts";
 
 const PI_AGENT_HOME = process.env.PI_CODING_AGENT_DIR || join(process.env.HOME || "", ".pi", "agent");
 const CURSOR_MODEL = process.env.PI_SUBAGENT_MODEL || "cursor/composer-2.5";
-const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || join(PI_AGENT_HOME, "npm", "node_modules", "pi-cursor-sdk", "src", "index.ts");
+const CURSOR_SDK_EXTENSION = process.env.PI_CURSOR_SDK_EXTENSION || powerpackCursorSdkExtension(import.meta.url);
 const CURSOR_FAST_FLAGS = process.env.PI_SUBAGENT_CURSOR_FAST === "0" ? [] : ["--cursor-fast"];
+const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
 // ── Types ────────────────────────────────────────
 
@@ -102,41 +104,45 @@ const BG_RESET = "\x1b[49m";
 // ── Extension ────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
-	const experts: Map<string, ExpertState> = new Map();
-	let gridCols = 3;
-	let widgetCtx: any;
+		const experts: Map<string, ExpertState> = new Map();
+		let gridCols = 3;
+		let widgetCtx: any;
+		let piPiMode = false;
+		let allToolNames: string[] = [];
 
-	function loadExperts(cwd: string) {
-		// Pi Pi experts live in their own dedicated directory
-		const projectPiPiDir = join(cwd, ".pi", "agents", "pi-pi");
-		const globalPiPiDir = join(PI_AGENT_HOME, "agents", "pi-pi");
-		const piPiDir = existsSync(projectPiPiDir) ? projectPiPiDir : globalPiPiDir;
+		function loadExperts(cwd: string) {
+			// Pi Pi experts live in their own dedicated directory. Project files
+			// override global and bundled package defaults by name.
+			const packagePiPiDir = join(PACKAGE_AGENTS_DIR, "pi-pi");
+			const projectPiPiDir = join(cwd, ".pi", "agents", "pi-pi");
+			const globalPiPiDir = join(PI_AGENT_HOME, "agents", "pi-pi");
+			const dirs = [packagePiPiDir, globalPiPiDir, projectPiPiDir];
 
-		experts.clear();
+			experts.clear();
 
-		if (!existsSync(piPiDir)) return;
-		try {
-			for (const file of readdirSync(piPiDir)) {
-				if (!file.endsWith(".md")) continue;
-				if (file === "pi-orchestrator.md") continue;
-				const fullPath = resolve(piPiDir, file);
-				const def = parseAgentFile(fullPath);
-				if (def) {
-					const key = def.name.toLowerCase();
-					if (!experts.has(key)) {
-						experts.set(key, {
-							def,
-							status: "idle",
-							question: "",
-							elapsed: 0,
-							lastLine: "",
-							queryCount: 0,
-						});
+			for (const piPiDir of dirs) {
+				if (!existsSync(piPiDir)) continue;
+				try {
+					for (const file of readdirSync(piPiDir)) {
+						if (!file.endsWith(".md")) continue;
+						if (file === "pi-orchestrator.md") continue;
+						const fullPath = resolve(piPiDir, file);
+						const def = parseAgentFile(fullPath);
+						if (def) {
+							const key = def.name.toLowerCase();
+							experts.set(key, {
+								def,
+								status: experts.get(key)?.status ?? "idle",
+								question: experts.get(key)?.question ?? "",
+								elapsed: experts.get(key)?.elapsed ?? 0,
+								lastLine: experts.get(key)?.lastLine ?? "",
+								queryCount: experts.get(key)?.queryCount ?? 0,
+							});
+						}
 					}
-				}
+				} catch {}
 			}
-		} catch {}
-	}
+		}
 
 	// ── Grid Rendering ───────────────────────────
 
@@ -298,7 +304,7 @@ export default function (pi: ExtensionAPI) {
 		const textChunks: string[] = [];
 
 		return new Promise((resolve) => {
-			const proc = spawn("pi", args, {
+				const proc = spawn(resolvePiBinary(), args, {
 				stdio: ["ignore", "pipe", "pipe"],
 				env: { ...process.env },
 			});
@@ -352,7 +358,7 @@ export default function (pi: ExtensionAPI) {
 
 				ctx.ui.notify(
 					`${displayName(state.def.name)} ${state.status} in ${Math.round(state.elapsed / 1000)}s`,
-					state.status === "done" ? "success" : "error"
+					state.status === "done" ? "info" : "error"
 				);
 
 				resolve({
@@ -413,6 +419,13 @@ Ask specific questions about what you need to BUILD. Each expert will return doc
 
 		async execute(_toolCallId, params, _signal, onUpdate, ctx) {
 			const { queries } = params as { queries: { expert: string; question: string }[] };
+
+			if (!piPiMode) {
+				return {
+					content: [{ type: "text", text: "Pi Pi experts are installed but inactive. Use /pi-pi-mode before querying experts." }],
+					details: { results: [], status: "inactive" },
+				};
+			}
 
 			if (!queries || queries.length === 0) {
 				return {
@@ -531,10 +544,81 @@ Ask specific questions about what you need to BUILD. Each expert will return doc
 		},
 	});
 
-	// ── Commands ─────────────────────────────────
+		// ── Commands ─────────────────────────────────
 
-	pi.registerCommand("experts", {
-		description: "List available Pi Pi experts and their status",
+		function installFooter(ctx: any) {
+			ctx.ui.setFooter((_tui: any, theme: any, _footerData: any) => ({
+				dispose: () => {},
+				invalidate() {},
+				render(width: number): string[] {
+					const model = ctx.model?.id || "no-model";
+					const usage = ctx.getContextUsage();
+					const pct = usage ? usage.percent : 0;
+					const filled = Math.round(pct / 10);
+					const bar = "#".repeat(filled) + "-".repeat(10 - filled);
+
+					const active = Array.from(experts.values()).filter(e => e.status === "researching").length;
+					const done = Array.from(experts.values()).filter(e => e.status === "done").length;
+
+					const left = theme.fg("dim", ` ${model}`) +
+						theme.fg("muted", " · ") +
+						theme.fg("accent", "Pi Pi");
+					const mid = active > 0
+						? theme.fg("accent", ` ◉ ${active} researching`)
+						: done > 0
+						? theme.fg("success", ` ✓ ${done} done`)
+						: "";
+					const right = theme.fg("dim", `[${bar}] ${Math.round(pct)}% `);
+					const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(mid) - visibleWidth(right)));
+
+					return [truncateToWidth(left + mid + pad + right, width)];
+				},
+			}));
+		}
+
+		function enablePiPiMode(ctx: any) {
+			piPiMode = true;
+			pi.setActiveTools(["read", "write", "edit", "bash", "grep", "find", "ls", "query_experts"]);
+			ctx.ui.setStatus("pi-pi", `Pi Pi (${experts.size} experts)`);
+			updateWidget();
+			installFooter(ctx);
+		}
+
+		function disablePiPiMode(ctx: any) {
+			piPiMode = false;
+			if (allToolNames.length > 0) {
+				pi.setActiveTools(allToolNames);
+			}
+			ctx.ui.setStatus("pi-pi", undefined);
+			ctx.ui.setWidget("pi-pi-grid", undefined);
+			ctx.ui.setFooter(undefined);
+		}
+
+		pi.registerCommand("pi-pi-mode", {
+			description: "Activate Pi Pi expert-builder mode",
+			handler: async (_args, ctx) => {
+				widgetCtx = ctx;
+				if (experts.size === 0) {
+					ctx.ui.notify("No Pi Pi experts loaded.", "warning");
+					return;
+				}
+				enablePiPiMode(ctx);
+				const expertNames = Array.from(experts.values()).map(s => displayName(s.def.name)).join(", ");
+				ctx.ui.notify(`Pi Pi mode on — ${experts.size} experts: ${expertNames}`, "info");
+			},
+		});
+
+		pi.registerCommand("pi-pi-off", {
+			description: "Deactivate Pi Pi expert-builder mode",
+			handler: async (_args, ctx) => {
+				widgetCtx = ctx;
+				disablePiPiMode(ctx);
+				ctx.ui.notify("Pi Pi mode off.", "info");
+			},
+		});
+
+		pi.registerCommand("experts", {
+			description: "List available Pi Pi experts and their status",
 		handler: async (_args, _ctx) => {
 			widgetCtx = _ctx;
 			const lines = Array.from(experts.values())
@@ -561,16 +645,23 @@ Ask specific questions about what you need to BUILD. Each expert will return doc
 
 	// ── System Prompt ────────────────────────────
 
-	pi.on("before_agent_start", async (_event, _ctx) => {
-		const expertCatalog = Array.from(experts.values())
+		pi.on("before_agent_start", async (_event, _ctx) => {
+			if (!piPiMode) return {};
+
+			const expertCatalog = Array.from(experts.values())
 			.map(s => `### ${displayName(s.def.name)}\n**Query as:** \`${s.def.name}\`\n${s.def.description}`)
 			.join("\n\n");
 
 		const expertNames = Array.from(experts.values()).map(s => displayName(s.def.name)).join(", ");
 
-		const projectOrchestratorPath = join(_ctx.cwd, ".pi", "agents", "pi-pi", "pi-orchestrator.md");
-		const globalOrchestratorPath = join(PI_AGENT_HOME, "agents", "pi-pi", "pi-orchestrator.md");
-		const orchestratorPath = existsSync(projectOrchestratorPath) ? projectOrchestratorPath : globalOrchestratorPath;
+			const projectOrchestratorPath = join(_ctx.cwd, ".pi", "agents", "pi-pi", "pi-orchestrator.md");
+			const globalOrchestratorPath = join(PI_AGENT_HOME, "agents", "pi-pi", "pi-orchestrator.md");
+			const packageOrchestratorPath = join(PACKAGE_AGENTS_DIR, "pi-pi", "pi-orchestrator.md");
+			const orchestratorPath = existsSync(projectOrchestratorPath)
+				? projectOrchestratorPath
+				: existsSync(globalOrchestratorPath)
+				? globalOrchestratorPath
+				: packageOrchestratorPath;
 		let systemPrompt = "";
 		try {
 			const raw = readFileSync(orchestratorPath, "utf-8");
@@ -595,48 +686,21 @@ Ask specific questions about what you need to BUILD. Each expert will return doc
 		if (widgetCtx) {
 			widgetCtx.ui.setWidget("pi-pi-grid", undefined);
 		}
-		widgetCtx = _ctx;
+			widgetCtx = _ctx;
+			allToolNames = pi.getAllTools().map((t) => t.name);
 
-		loadExperts(_ctx.cwd);
-		updateWidget();
+			loadExperts(_ctx.cwd);
 
-		const expertNames = Array.from(experts.values()).map(s => displayName(s.def.name)).join(", ");
-		_ctx.ui.setStatus("pi-pi", `Pi Pi (${experts.size} experts)`);
-		_ctx.ui.notify(
-			`Pi Pi loaded — ${experts.size} experts: ${expertNames}\n\n` +
-			`/experts          List experts and status\n` +
-			`/experts-grid N   Set grid columns (1-5)\n\n` +
-			`Ask me to build any Pi agent component!`,
-			"info",
-		);
-
-		// Custom footer
-		_ctx.ui.setFooter((_tui, theme, _footerData) => ({
-			dispose: () => {},
-			invalidate() {},
-			render(width: number): string[] {
-				const model = _ctx.model?.id || "no-model";
-				const usage = _ctx.getContextUsage();
-				const pct = usage ? usage.percent : 0;
-				const filled = Math.round(pct / 10);
-				const bar = "#".repeat(filled) + "-".repeat(10 - filled);
-
-				const active = Array.from(experts.values()).filter(e => e.status === "researching").length;
-				const done = Array.from(experts.values()).filter(e => e.status === "done").length;
-
-				const left = theme.fg("dim", ` ${model}`) +
-					theme.fg("muted", " · ") +
-					theme.fg("accent", "Pi Pi");
-				const mid = active > 0
-					? theme.fg("accent", ` ◉ ${active} researching`)
-					: done > 0
-					? theme.fg("success", ` ✓ ${done} done`)
-					: "";
-				const right = theme.fg("dim", `[${bar}] ${Math.round(pct)}% `);
-				const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(mid) - visibleWidth(right)));
-
-				return [truncateToWidth(left + mid + pad + right, width)];
-			},
-		}));
-	});
-}
+			if (process.env.PI_POWERPACK_BOOT_NOTICES === "1") {
+				const expertNames = Array.from(experts.values()).map(s => displayName(s.def.name)).join(", ");
+				_ctx.ui.notify(
+					`Pi Pi ready — ${experts.size} experts: ${expertNames}\n\n` +
+					`/pi-pi-mode      Activate expert-builder mode\n` +
+					`/pi-pi-off       Deactivate expert-builder mode\n` +
+					`/experts          List experts and status\n` +
+					`/experts-grid N   Set grid columns (1-5)`,
+					"info",
+				);
+			}
+		});
+	}
