@@ -4,6 +4,8 @@ Pi Composer Powerpack is a **Pi package** (`package.json` → `pi.extensions`), 
 
 ## Install flow
 
+End-user steps: [README Quick start (install)](../README.md#install).
+
 ```text
 pi install https://github.com/kartikkabadi/pi-composer-powerpack
         │

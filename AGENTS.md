@@ -4,6 +4,8 @@ Guide + curated assets repo for a polished Pi + Cursor Composer 2.5 + multi-agen
 
 **Install path is Pi's GitHub installer only.** Do not reintroduce `install.sh`, shell launchers, or a separate npm package setup flow unless explicitly requested by the maintainer.
 
+User install = [README Quick start (install)](README.md#install); no other install path.
+
 ## Working agreements (guide-first + assets)
 
 - Keep README and key assets (extensions/, agents/, themes/, config/) copy-paste friendly and high-signal for agents and humans.

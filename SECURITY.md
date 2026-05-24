@@ -27,4 +27,4 @@ Out of scope: vulnerabilities in Pi itself, `pi-cursor-sdk`, or Cursorâ€™s API â
 
 - Never commit API keys, Pi session files, or `~/.pi` auth material to this repo.
 - Review Dependabot and contributor PRs before merge; verify the author is `dependabot[bot]` for automated dependency PRs.
-- Run `npm run check:secrets` before releases.
+- Run `sfw pnpm run check:secrets` before releases (or `pnpm run check:secrets` if Socket Firewall is not used).

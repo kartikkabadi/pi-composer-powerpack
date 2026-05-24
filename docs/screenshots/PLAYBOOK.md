@@ -34,7 +34,7 @@ Capture: agent-team grid with mixed statuses.
 ```text
 /chain-mode
 /chain-list
-/chain-run Summarize the Install section of README in under 40 words.
+/chain-run Summarize the Quick start (install) section of README in under 40 words.
 ```
 
 Capture: chain pipeline widget with steps in different states.

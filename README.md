@@ -1,5 +1,6 @@
 # Pi Composer Powerpack
 
+[![CI](https://github.com/kartikkabadi/pi-composer-powerpack/actions/workflows/ci.yml/badge.svg)](https://github.com/kartikkabadi/pi-composer-powerpack/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub](https://img.shields.io/badge/github-kartikkabadi%2Fpi--composer--powerpack-24292f)](https://github.com/kartikkabadi/pi-composer-powerpack)
 
@@ -8,6 +9,10 @@
 For developers on **Pi ≥ 0.75.3** who want Composer fast mode with opinionated orchestration, not a separate IDE extension.
 
 ## Quick start
+
+### Install
+
+Requires Pi **≥ 0.75.3** (see [Troubleshooting](docs/troubleshooting.md#install-and-startup) if install fails).
 
 ```bash
 pi install https://github.com/kartikkabadi/pi-composer-powerpack
@@ -105,7 +110,7 @@ Set default chain: `PI_DEFAULT_CHAIN=plan-build-review`.
 
 ### Agents
 
-9 general agents (`scout`, `planner`, `builder`, …) plus 10 Pi-Pi specialists under [`agents/pi-pi/`](agents/pi-pi/).
+8 general agents (`scout`, `planner`, `builder`, …) plus 9 Pi-Pi experts under [`agents/pi-pi/`](agents/pi-pi/) (`pi-orchestrator` is the orchestrator prompt, not a dispatch target).
 
 ### Theme
 
@@ -128,7 +133,9 @@ Set default chain: `PI_DEFAULT_CHAIN=plan-build-review`.
 
 ## Preview
 
-Terminal screenshots (subagents, team grid, chain pipeline) live in [`docs/screenshots/`](docs/screenshots/). Capture steps: [`docs/screenshots/PLAYBOOK.md`](docs/screenshots/PLAYBOOK.md).
+| Subagents (`/sub`) | Team grid (`/agents-mode`) | Chain pipeline (`/chain-mode`) |
+|---|---|---|
+| ![Subagent widgets](docs/screenshots/subagent-running.png) | ![Team grid](docs/screenshots/team-grid.png) | ![Chain pipeline](docs/screenshots/chain-pipeline.png) |
 
 ## Verify
 

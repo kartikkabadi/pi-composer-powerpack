@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+## [0.1.2] - 2026-05-24
+
+### Added
+
+- README terminal preview screenshots (`subagent-running`, `team-grid`, `chain-pipeline`)
+- `docs/screenshots/social-preview.png` (1280×640; upload via GitHub repo settings)
+
+### Changed
+
+- README: **Install** subheading under Quick start; corrected bundled agent counts
+- Docs aligned to “Quick start (install)” vocabulary (`PLAYBOOK`, `architecture`, `AGENTS`, `troubleshooting`)
+
 ## [0.1.1] - 2026-05-24
 
 ### Added
@@ -34,4 +48,6 @@ All notable changes to this project are documented in this file.
 
 - PR #1: consolidated install path — single `pi install` from GitHub URL
 
+[0.1.2]: https://github.com/kartikkabadi/pi-composer-powerpack/releases/tag/v0.1.2
+[0.1.1]: https://github.com/kartikkabadi/pi-composer-powerpack/releases/tag/v0.1.1
 [0.1.0]: https://github.com/kartikkabadi/pi-composer-powerpack/releases/tag/v0.1.0

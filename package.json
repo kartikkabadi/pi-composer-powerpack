@@ -1,6 +1,6 @@
 {
   "name": "pi-composer-powerpack",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": false,
   "description": "Cursor Composer 2.5 and multi-agent workflow extensions for Pi.",
   "license": "MIT",
