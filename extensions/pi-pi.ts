@@ -399,7 +399,8 @@ Available experts:
 - tui-expert: TUI — components, keyboard input, overlays, widgets, footers, editors
 - prompt-expert: Prompt templates — single-file .md commands, arguments ($1, $@)
 - agent-expert: Agent definitions — .md personas, tools, teams.yaml, orchestration
-- keybinding-expert: Keyboard shortcuts — registerShortcut(), Key IDs, reserved keys, macOS terminal compatibility
+- cli-expert: CLI flags, env vars, entrypoints
+- keybinding-expert: Keyboard shortcuts — registerShortcut(), Key IDs, reserved keys
 
 Ask specific questions about what you need to BUILD. Each expert will return documentation excerpts, code patterns, and implementation guidance.`,
 
@@ -407,7 +408,8 @@ Ask specific questions about what you need to BUILD. Each expert will return doc
 			queries: Type.Array(
 				Type.Object({
 					expert: Type.String({
-						description: "Expert name: ext-expert, theme-expert, skill-expert, config-expert, tui-expert, prompt-expert, or agent-expert",
+						description:
+							"Expert name: ext-expert, theme-expert, skill-expert, config-expert, tui-expert, prompt-expert, agent-expert, cli-expert, or keybinding-expert",
 					}),
 					question: Type.String({
 						description: "Specific question about what you need to build. Include context about the target component.",

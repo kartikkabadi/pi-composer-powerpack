@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-05-25
+
+### Fixed
+
+- Pi-pi team dispatch scans `agents/pi-pi/` subdirectory
+
+### Added
+
+- `cli-expert` and `keybinding-expert` in `agents/teams.yaml`
+- Agent/team drift test (`test/matrix.test.mjs`)
+
 ## [0.1.5] - 2026-05-25
 
 ### Fixed

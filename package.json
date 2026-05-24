@@ -1,6 +1,6 @@
 {
   "name": "pi-composer-powerpack",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": false,
   "description": "Cursor Composer 2.5 and multi-agent workflow extensions for Pi.",
   "license": "MIT",
@@ -74,7 +74,8 @@
     "check:secrets": "bash -lc 'command -v rg >/dev/null || { echo \"ripgrep (rg) required\"; exit 1; }; rg -n \"(api[_-]?key|token|secret|password|bearer|sk-)\\\\s*[:=]\" . --glob \"!package-lock.json\" --glob \"!pnpm-lock.yaml\" --glob \"!node_modules\"; test $? -eq 1'",
     "pack:dry": "npm pack --dry-run --ignore-scripts",
     "lint": "eslint extensions/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/matrix.test.mjs"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "0.75.5",

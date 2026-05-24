@@ -135,6 +135,18 @@ function scanAgentDirs(cwd: string): AgentDef[] {
 					agents.push(def);
 				}
 			}
+			const piPiDir = join(dir, "pi-pi");
+			if (existsSync(piPiDir)) {
+				for (const file of readdirSync(piPiDir)) {
+					if (!file.endsWith(".md")) continue;
+					const fullPath = resolve(piPiDir, file);
+					const def = parseAgentFile(fullPath);
+					if (def && !seen.has(def.name.toLowerCase())) {
+						seen.add(def.name.toLowerCase());
+						agents.push(def);
+					}
+				}
+			}
 		} catch {}
 	}
 

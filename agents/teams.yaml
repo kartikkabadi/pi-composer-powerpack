@@ -29,3 +29,5 @@ pi-pi:
   - tui-expert
   - prompt-expert
   - agent-expert
+  - cli-expert
+  - keybinding-expert
