@@ -480,7 +480,7 @@ ${agentCatalog}
 		agentDef: AgentDef,
 		task: string,
 		stepIndex: number,
-		ctx: any,
+		_ctx: any,
 	): Promise<{ output: string; exitCode: number; elapsed: number }> {
 		const model = CURSOR_MODEL;
 
@@ -812,7 +812,7 @@ ${agentCatalog}
 				return;
 			}
 			applyChainMode(ctx);
-			await ctx.sendUserMessage(
+			await pi.sendUserMessage(
 				`Run the active chain (${activeChain.name}) on this task:\n\n${task}`,
 				{ deliverAs: "followUp" },
 			);
@@ -879,7 +879,7 @@ ${agentCatalog}
 		);
 
 		if (process.env.PI_CHAIN_ENFORCE === "1") {
-			await ctx.sendUserMessage(
+			await pi.sendUserMessage(
 				`You must call run_chain now for this task. Do not use other tools.\n\nTask:\n${lastUserPrompt}`,
 				{ deliverAs: "followUp" },
 			);

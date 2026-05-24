@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-05-25
+
+### Added
+
+- `pnpm run typecheck` and CI typecheck gate
+
+### Changed
+
+- Fixed TypeScript errors across core extensions
+- Excluded `extensions/cursor-sdk.ts` from tsconfig and ESLint
+
 ## [0.1.3] - 2026-05-25
 
 ### Added

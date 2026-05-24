@@ -10,5 +10,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["extensions/**/*.ts"]
+  "include": ["extensions/**/*.ts"],
+  "exclude": ["extensions/cursor-sdk.ts", "node_modules"]
 }

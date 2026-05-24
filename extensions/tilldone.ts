@@ -326,10 +326,6 @@ export default function (pi: ExtensionAPI) {
 		applyExtensionDefaults(import.meta.url, ctx);
 		reconstructState(ctx);
 	});
-	pi.on("session_switch", async (_event, ctx) => reconstructState(ctx));
-	pi.on("session_fork", async (_event, ctx) => reconstructState(ctx));
-	pi.on("session_tree", async (_event, ctx) => reconstructState(ctx));
-
 	// ── Blocking gate ──────────────────────────────────────────────────
 
 	pi.on("tool_call", async (event, _ctx) => {

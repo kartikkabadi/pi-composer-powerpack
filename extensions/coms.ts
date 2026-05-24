@@ -13,10 +13,8 @@
  * Usage: pi -e extensions/coms.ts
  */
 
-import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
-import { DynamicBorder } from "@earendil-works/pi-coding-agent";
-import { Text, Container, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import type { AutocompleteItem } from "@earendil-works/pi-tui";
+import type { AgentToolResult, ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import { Text, truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import * as net from "node:net";
@@ -358,15 +356,6 @@ function pruneDeadEntriesAllProjects(): RegistryEntry[] {
 		out.push(...pruneDeadEntries(p));
 	}
 	return out;
-}
-
-function keepaliveTouch(file: string): void {
-	try {
-		const now = new Date();
-		fs.utimesSync(file, now, now);
-	} catch {
-		// best-effort
-	}
 }
 
 // ━━ Transport ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1413,12 +1402,12 @@ export default function (pi: ExtensionAPI) {
 		parameters: Type.Object({
 			msg_id: Type.String({ description: "msg_id returned by coms_send." }),
 		}),
-		async execute(_callId, params) {
+		async execute(_callId, params, _signal, _onUpdate, _ctx): Promise<AgentToolResult<unknown>> {
 			const entry = pendingReplies.get(params.msg_id);
 			if (!entry) {
 				return {
 					content: [{ type: "text" as const, text: `coms_get: unknown msg_id ${params.msg_id}` }],
-					details: { status: "error", error: "unknown msg_id" },
+					details: { status: "error" as const, error: "unknown msg_id" },
 				};
 			}
 			if (entry.result) {
@@ -1428,12 +1417,12 @@ export default function (pi: ExtensionAPI) {
 					: `coms_get: complete\n${typeof r.response === "string" ? r.response : JSON.stringify(r.response, null, 2)}`;
 				return {
 					content: [{ type: "text" as const, text }],
-					details: { status: "complete", response: r.response, error: r.error ?? null },
+					details: { status: "complete" as const, response: r.response, error: r.error ?? null },
 				};
 			}
 			return {
 				content: [{ type: "text" as const, text: `coms_get: pending` }],
-				details: { status: "pending" },
+				details: { status: "pending" as const },
 			};
 		},
 		renderCall(args, theme) {
@@ -1460,12 +1449,12 @@ export default function (pi: ExtensionAPI) {
 			msg_id: Type.String({ description: "msg_id returned by coms_send." }),
 			timeout_ms: Type.Optional(Type.Number({ description: "Override the default timeout (ms)." })),
 		}),
-		async execute(_callId, params) {
+		async execute(_callId, params, _signal, _onUpdate, _ctx): Promise<AgentToolResult<unknown>> {
 			const entry = pendingReplies.get(params.msg_id);
 			if (!entry) {
 				return {
 					content: [{ type: "text" as const, text: `coms_await: unknown msg_id ${params.msg_id}` }],
-					details: { error: "unknown msg_id" },
+					details: { error: "unknown msg_id" as const },
 				};
 			}
 			const timeoutMs = typeof params.timeout_ms === "number" && params.timeout_ms > 0
@@ -1474,17 +1463,17 @@ export default function (pi: ExtensionAPI) {
 
 			const timed = new Promise<{ error: string }>((resolve) => {
 				const t = setTimeout(() => resolve({ error: "timeout" }), timeoutMs);
-				try { (t as any).unref?.(); } catch { /* ignore */ }
+				try { (t as NodeJS.Timeout).unref?.(); } catch { /* ignore */ }
 			});
 
 			const winner = await Promise.race([entry.promise, timed]);
-			if ((winner as any).error) {
+			if ("error" in winner && winner.error) {
 				return {
-					content: [{ type: "text" as const, text: `coms_await: error — ${(winner as any).error}` }],
-					details: { error: (winner as any).error },
+					content: [{ type: "text" as const, text: `coms_await: error — ${winner.error}` }],
+					details: { error: winner.error },
 				};
 			}
-			const resp = (winner as any).response;
+			const resp = "response" in winner ? winner.response : undefined;
 			return {
 				content: [{ type: "text" as const, text: typeof resp === "string" ? resp : JSON.stringify(resp, null, 2) }],
 				details: { response: resp },

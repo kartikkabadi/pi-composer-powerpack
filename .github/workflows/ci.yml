@@ -33,3 +33,6 @@ jobs:
 
       - name: Lint extensions
         run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
