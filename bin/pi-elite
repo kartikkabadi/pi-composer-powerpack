@@ -1,0 +1,2 @@
+#!/bin/zsh
+exec "${PI_POWERPACK_PI:-$HOME/.local/bin/pi}" --model cursor/composer-2.5 --cursor-fast "$@"

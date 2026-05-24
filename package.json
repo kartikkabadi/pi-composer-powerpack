@@ -1,0 +1,36 @@
+{
+  "name": "pi-composer-powerpack",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Cursor Composer 2.5 and multi-agent workflow extensions for Pi.",
+  "license": "MIT",
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./extensions/cursor-sdk.ts",
+      "./extensions/damage-control-continue.ts",
+      "./extensions/subagent-widget.ts",
+      "./extensions/coms.ts"
+    ],
+    "themes": [
+      "./themes"
+    ]
+  },
+  "files": [
+    "agents",
+    "bin",
+    "config",
+    "extensions",
+    "themes",
+    "install.sh",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "yaml": "2.9.0"
+  },
+  "scripts": {
+    "check:secrets": "bash -lc '! rg -n \"(api[_-]?key|token|secret|password|bearer|sk-)\\\\s*[:=]\" . --glob \"!package-lock.json\" --glob \"!pnpm-lock.yaml\"'",
+    "smoke:chain": "PI_CURSOR_PI_TOOL_BRIDGE=0 pi --no-context-files --append-system-prompt ~/.pi/agent/AGENTS.md --model cursor/composer-2.5 --cursor-fast --no-extensions -e ./extensions/cursor-sdk.ts -e ./extensions/agent-chain.ts -e ./extensions/damage-control-continue.ts --no-session --no-tools -p 'Reply exactly OK'"
+  }
+}
