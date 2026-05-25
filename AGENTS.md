@@ -1,51 +1,32 @@
 # Pi Composer Powerpack — AGENTS.md
 
-Guide + curated assets repo for a polished Pi + Cursor Composer 2.5 + multi-agent experience (extensions, agent prompts, mono-black theme, etc.).
+Guide + curated assets for Pi + Cursor Composer 2.5 + multi-agent workflows.
 
-**Install path is Pi's GitHub installer only.** Do not reintroduce `install.sh`, shell launchers, or a separate npm package setup flow unless explicitly requested by the maintainer.
+**Install:** Pi GitHub installer only — see [README Quick start](README.md#install). Do not add `install.sh`, shell launchers, or a separate npm setup path unless the maintainer explicitly requests it.
 
-User install = [README Quick start (install)](README.md#install); no other install path.
+## Read order
 
-## Working agreements (guide-first + assets)
+1. [README.md](README.md) — user install and commands
+2. [docs/architecture.md](docs/architecture.md) — extension tiers and config cascade
+3. [docs/CONTEXT.md](docs/CONTEXT.md) — glossary
+4. [docs/ROADMAP.md](docs/ROADMAP.md) — shipped vs next
 
-- Keep README and key assets (extensions/, agents/, themes/, config/) copy-paste friendly and high-signal for agents and humans.
-- No secrets, Pi session JSONL, auth files, memory DBs, sockets, or private machine-wide configs in the repo (enforce via existing `npm run check:secrets` + manual).
-- Keep `package.json`'s `pi` field self-contained for GitHub installs.
-- Use `sfw` (Socket Firewall) for any pnpm/npm/bun operations (per global machine rules).
-- Delete before adding. Smallest change that gives real feedback. Prefer `rg` + project package manager.
-- Guide purity: edits must serve the GitHub-installed Pi powerpack flow.
+Maintainer-only machine context: [AGENTS.maintainer.md](AGENTS.maintainer.md) (optional).
+
+## Working agreements
+
+- Keep README and assets (`extensions/`, `agents/`, `themes/`, `config/`) high-signal for humans and agents.
+- No secrets, Pi session JSONL, auth files, or private machine paths in the repo (`npm run check:secrets`).
+- Keep `package.json` `pi` field accurate for GitHub installs.
+- Smallest change that gives real feedback. Guide purity: edits must serve the GitHub-installed flow.
+- Extensions should stay under 1000 LOC per file where practical.
 
 ## Review guidelines
 
-- Flag any addition of secrets, private data, or large binary assets as P0.
-- Verify package install and startup experience after README, manifest, or extension changes.
-- Extensions/agents/: ensure prompts and hooks remain focused on intent/product-boundary (not low-level impl unless repo convention answers it).
-- Before GH release or publish: run secret check, dry pack, and an isolated Pi install smoke.
-- Keep package.json "pi" field and "files" accurate for the GitHub installer model.
+- P0: secrets, private data, or large binaries in repo
+- After README/manifest/extension changes: `check:secrets`, `pack:dry`, `lint`, `typecheck`, `test`
+- Before release: isolated `pi install` smoke on the GitHub URL
 
-## Integration with Cascade / Superpowers Skills
+## Contributing
 
-When working on this project, invoke these skills (read their SKILL.md first):
-
-- **obsidian-recall-router** (qmd_recall.py in vault) — before any strategy, prior-decision, or Pi/Hermes context work.
-- **git-branch-worktree-discipline** — before any git clone, branch, worktree, push, or destructive op. Always preflight (status/branch/diff/log).
-- **brainstorming** — before creative changes to guide/assets or README.
-- **vibe-security** — for any code review of extensions/ or new logic.
-- **supply-chain-install-protection** + global Socket rules (sfw) — for installs.
-- **repo-inspection** — for deep dives on this or related Pi projects.
-- **verification-before-completion** + **agent-verification-discipline** — before claiming any polish, release, or milestone done.
-- **using-superpowers** — always at start of relevant work.
-
-## Global + Nearest AGENTS
-
-Inherits all global durable rules (scope exact, protect secrets, nearest AGENTS/docs/lockfiles, opensrc for deps, direct/concise, verify before claim, etc.).
-
-Also reference nearest in sibling projects (e.g. foundry/AGENTS.md once added, or clawhip-port/AGENTS.md for patterns).
-
-**Runtimes**: This is Pi Extension Pack territory. Keep separate from Foundry (the TS/Node CLI runtime), Codex, Hermes, etc.
-
-End every session with: what changed, what was verified, what remains (per global).
-
----
-
-*This AGENTS.md added as part of 2026-05 alignment + hygiene baseline milestone (plan execution).*
+See [CONTRIBUTING.md](CONTRIBUTING.md). Use standard git fork/PR flow; `sfw` recommended if Socket Firewall is available.
