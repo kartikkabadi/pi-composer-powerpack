@@ -16,17 +16,23 @@ import { basename } from "node:path";
 // ── Theme assignments ──────────────────────────────────────────────────────
 //
 // Key   = extension filename without extension (matches extensions/<key>.ts)
-// Value = theme name from .pi/themes/<value>.json
+// Value = desired theme from .pi/themes/<value>.json
+//
+// Only "mono-black" ships in this package (themes/mono-black.json).
+// Other entries are aspirational — they resolve only if the user has the
+// corresponding theme installed in ~/.pi/agent/themes/ or .pi/themes/.
+// Theme switching is a no-op until Pi exposes a stable API, so these are
+// metadata only (used for future theme-switch support).
 //
 export const THEME_MAP: Record<string, string> = {
+	"cursor-sdk": "mono-black",
 	"agent-chain": "midnight-ocean",
 	"agent-team": "dracula",
-	"auto-caveman": "gruvbox",
-	"coms": "ocean-breeze",
-	"cursor-sdk": "mono-black",
-	"damage-control-continue": "gruvbox",
 	"pi-pi": "rose-pine",
+	"coms": "ocean-breeze",
 	"subagent-widget": "cyberpunk",
+	"damage-control-continue": "gruvbox",
+	"auto-caveman": "gruvbox",
 	"superset-hooks": "tokyo-night",
 	"tilldone": "everforest",
 };

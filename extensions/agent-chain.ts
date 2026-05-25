@@ -25,12 +25,12 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { readFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from "node:fs";
+import { Text } from "@earendil-works/pi-tui";
+import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
-import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
+import { spawnChildAgent } from "./lib/childAgentSession.ts";
 import {
 	scanAgents,
 	loadChainDefinitions,
@@ -39,6 +39,16 @@ import {
 	type AgentDef,
 	type ChainDef,
 } from "./lib/agentDefinitions.ts";
+import {
+	renderStatusCard,
+	installContextFooter,
+	renderToolCallLine,
+	truncateOutput,
+	truncateText,
+	lastNonEmptyLine,
+	clearSessionFiles,
+	type StatusValue,
+} from "./lib/workflowKit.ts";
 
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
@@ -227,42 +237,14 @@ ${agentCatalog}
 	// ── Card Rendering ──────────────────────────
 
 	function renderCard(state: StepState, colWidth: number, theme: any): string[] {
-		const w = colWidth - 2;
-		const truncate = (s: string, max: number) => s.length > max ? s.slice(0, max - 3) + "..." : s;
-
-		const statusColor = state.status === "pending" ? "dim"
-			: state.status === "running" ? "accent"
-			: state.status === "done" ? "success" : "error";
-		const statusIcon = state.status === "pending" ? "○"
-			: state.status === "running" ? "●"
-			: state.status === "done" ? "✓" : "✗";
-
-		const name = displayName(state.agent);
-		const nameStr = theme.fg("accent", theme.bold(truncate(name, w)));
-		const nameVisible = Math.min(name.length, w);
-
-		const statusStr = `${statusIcon} ${state.status}`;
-		const timeStr = state.status !== "pending" ? ` ${Math.round(state.elapsed / 1000)}s` : "";
-		const statusLine = theme.fg(statusColor, statusStr + timeStr);
-		const statusVisible = statusStr.length + timeStr.length;
-
-		const workRaw = state.lastWork || "";
-		const workText = workRaw ? truncate(workRaw, Math.min(50, w - 1)) : "";
-		const workLine = workText ? theme.fg("muted", workText) : theme.fg("dim", "—");
-		const workVisible = workText ? workText.length : 1;
-
-		const top = "┌" + "─".repeat(w) + "┐";
-		const bot = "└" + "─".repeat(w) + "┘";
-		const border = (content: string, visLen: number) =>
-			theme.fg("dim", "│") + content + " ".repeat(Math.max(0, w - visLen)) + theme.fg("dim", "│");
-
-		return [
-			theme.fg("dim", top),
-			border(" " + nameStr, 1 + nameVisible),
-			border(" " + statusLine, 1 + statusVisible),
-			border(" " + workLine, 1 + workVisible),
-			theme.fg("dim", bot),
-		];
+		return renderStatusCard({
+			name: displayName(state.agent),
+			status: state.status as StatusValue,
+			elapsed: state.elapsed,
+			workText: state.lastWork || "",
+			theme,
+			colWidth,
+		});
 	}
 
 	function updateWidget() {
@@ -324,7 +306,7 @@ ${agentCatalog}
 		const hasSession = agentSessions.get(agentKey);
 		const state = stepStates[stepIndex];
 
-		return runSpecialistSpawn(
+		return spawnChildAgent(
 			import.meta.url,
 			{
 				task,
@@ -345,7 +327,7 @@ ${agentCatalog}
 			},
 		).then(({ output, exitCode, elapsed }) => {
 			state.elapsed = elapsed;
-			state.lastWork = output.split("\n").filter((l: string) => l.trim()).pop() || "";
+			state.lastWork = lastNonEmptyLine(output);
 			if (exitCode === 0) {
 				agentSessions.set(agentKey, agentSessionFile);
 			}
@@ -448,9 +430,7 @@ ${agentCatalog}
 
 			const result = await runChain(task, ctx);
 
-			const truncated = result.output.length > 8000
-				? result.output.slice(0, 8000) + "\n\n... [truncated]"
-				: result.output;
+			const truncated = truncateOutput(result.output);
 
 			const status = result.success ? "done" : "error";
 			const summary = `[chain:${activeChain?.name}] ${status} in ${Math.round(result.elapsed / 1000)}s`;
@@ -469,14 +449,7 @@ ${agentCatalog}
 
 		renderCall(args, theme) {
 			const task = (args as any).task || "";
-			const preview = task.length > 60 ? task.slice(0, 57) + "..." : task;
-			return new Text(
-				theme.fg("toolTitle", theme.bold("run_chain ")) +
-				theme.fg("accent", activeChain?.name || "?") +
-				theme.fg("dim", " — ") +
-				theme.fg("muted", preview),
-				0, 0,
-			);
+			return renderToolCallLine(theme, "run_chain", activeChain?.name || "?", truncateText(task, 60));
 		},
 
 		renderResult(result, options, theme) {
@@ -670,15 +643,7 @@ ${agentCatalog}
 		activeChain = null;
 		pendingReset = true;
 
-		// Wipe chain session files — reset agent context on /new and launch
-		const sessDir = join(_ctx.cwd, ".pi", "agent-sessions");
-		if (existsSync(sessDir)) {
-			for (const f of readdirSync(sessDir)) {
-				if (f.startsWith("chain-") && f.endsWith(".json")) {
-					try { unlinkSync(join(sessDir, f)); } catch {}
-				}
-			}
-		}
+		clearSessionFiles(join(_ctx.cwd, ".pi", "agent-sessions"), "chain-");
 
 			// Reload chains + clear agentSessions map (all agents start fresh)
 			loadChains(_ctx.cwd);
@@ -710,28 +675,6 @@ ${agentCatalog}
 
 		function installFooter(ctx: any) {
 			if (!ctx) return;
-			ctx.ui.setFooter((_tui: any, theme: any, _footerData: any) => ({
-				dispose: () => {},
-				invalidate() {},
-				render(width: number): string[] {
-					const model = ctx.model?.id || "no-model";
-					const usage = ctx.getContextUsage();
-					const pct = usage ? usage.percent : 0;
-					const filled = Math.round(pct / 10);
-					const bar = "#".repeat(filled) + "-".repeat(10 - filled);
-
-				const chainLabel = activeChain
-					? theme.fg("accent", activeChain.name)
-					: theme.fg("dim", "no chain");
-
-				const left = theme.fg("dim", ` ${model}`) +
-					theme.fg("muted", " · ") +
-					chainLabel;
-				const right = theme.fg("dim", `[${bar}] ${Math.round(pct)}% `);
-				const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
-
-					return [truncateToWidth(left + pad + right, width)];
-				},
-			}));
+			installContextFooter(ctx, activeChain?.name ?? "no chain");
 		}
 	}

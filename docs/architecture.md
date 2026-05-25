@@ -47,6 +47,21 @@ This avoids fighting the default coding session while keeping commands discovera
 - [`extensions/powerpackPaths.ts`](../extensions/powerpackPaths.ts) — resolve package root, agents dir, cursor-sdk path, `pi` binary
 - [`extensions/themeMap.ts`](../extensions/themeMap.ts) — per-extension terminal title; theme map metadata (theme switch is a no-op until Pi exposes an API)
 
+## Config cascade (agent precedence)
+
+Agent definitions, chains, teams, and experts are loaded from multiple layers. Later sources override earlier ones for same-name entries.
+
+| Data | Loader | Collision rule | Priority (highest → lowest) |
+|------|--------|----------------|----------------------------|
+| Agents | `scanAgents` | First-seen wins | Project `.pi/agents` → global `~/.pi/agent/agents` → package `agents/` |
+| Pi-Pi experts | `loadPiPiExperts` | Last-wins overlay | Package → global → project (project replaces earlier) |
+| Chains | `mergeChains` | Last-wins overlay | Package → global → project |
+| Teams | `mergeTeams` | Last-wins overlay | Package → global → project |
+
+Both collision strategies result in **project > global > package** priority, just via different mechanisms (scan order + first-seen vs overlay + last-wins).
+
+See [ADR-0001](adr/0001-agent-precedence.md) for rationale and [CONTEXT.md](CONTEXT.md) for glossary.
+
 ## Subprocess model
 
 Chain and team modes spawn child `pi` processes for specialist agents, using bundled agent markdown and session files under `.pi/agent-sessions/`. Coms uses Unix domain sockets under `~/.pi/coms` (configurable via `PI_COMS_DIR`).

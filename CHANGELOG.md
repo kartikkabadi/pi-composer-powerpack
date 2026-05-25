@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.15] - 2026-05-25
+
+### Added
+
+- `extensions/lib/workflowKit.ts` — shared `renderStatusCard`, `installContextFooter`, `renderToolCallLine`, truncation helpers, `clearSessionFiles` (Phase 1)
+- `extensions/lib/childAgentSession.ts` — single spawn seam unifying subprocess config and specialist spawn (Phase 3)
+- `extensions/coms/session.ts` — extracted coms session lifecycle (boot, keepalive, response capture, shutdown) from monolithic index (Phase 4)
+- `docs/CONTEXT.md` — domain glossary and config cascade reference (Phase 0)
+- `docs/adr/0001-agent-precedence.md` — agent definition precedence decision record (Phase 0)
+- Table-driven damage-control-rules tests (58 test cases covering bash blocks, ask patterns, allow list, zero-access, read-only, no-delete paths) (Phase 4)
+- Precedence and merge tests for `scanAgents`, `mergeChains`, `mergeTeams` (Phase 2)
+- `scripts/release-one.sh`, `scripts/phase-b-release.sh` committed with safety headers (Phase 0)
+
+### Changed
+
+- `agentDefinitions.ts` imports `piAgentHome` from `powerpackPaths.ts` (was `subagentConfig.ts`) — fixes import indirection (Phase 2)
+- `scanAgents` precedence documented and reordered: project → global → package (first-seen wins) (Phase 2)
+- `agent-chain.ts`, `agent-team.ts`, `pi-pi.ts` migrated to shared WorkflowKit rendering (Phase 1)
+- All spawn callers migrated from `runSpecialistSpawn` to `spawnChildAgent` from `childAgentSession.ts` (Phase 3)
+- `auto-caveman.ts` uses shared `parseMarkdownFrontmatter` + `applyExtensionDefaults` (Phase 4)
+- Pi-Pi expert prompts slimmed — removed mandatory `firecrawl`/`curl` blocks, kept expert identity and domain knowledge (Phase 5)
+- `themeMap.ts` documented phantom themes (only `mono-black` ships in package) (Phase 5)
+- `bowser.md` notes external `playwright-bowser` skill dependency (Phase 5)
+- `SECURITY.md` updated supported versions to 0.2.x (Phase 0)
+- `docs/extensions.md` semver wording generalised to 0.x (Phase 0)
+- CHANGELOG 0.2.12 duplicate entry removed (Phase 0)
+- `docs/architecture.md` config cascade precedence table added (Phase 2)
+- `CONTRIBUTING.md` release section and full checklist added (Phase 0/6)
+- `README.md` verify section includes full CI command list (Phase 6)
+
 ## [0.2.14] - 2026-05-24
 
 ### Changed
@@ -18,13 +48,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- agent-chain pipeline widget stays local
-
-## [0.2.12] - 2026-05-24
-
-### Changed
-
-- agent-chain pipeline widget unchanged (pipeline arrows stay in agent-chain.ts)
+- agent-chain pipeline widget stays local (pipeline arrows remain in agent-chain.ts)
 ## [0.2.11] - 2026-05-25
 
 ### Changed

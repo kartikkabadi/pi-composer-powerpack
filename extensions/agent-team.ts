@@ -19,10 +19,10 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { Text, type AutocompleteItem, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { readdirSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { Text, type AutocompleteItem } from "@earendil-works/pi-tui";
+import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
+import { spawnChildAgent } from "./lib/childAgentSession.ts";
 import { installRawWorkflowGrid } from "./lib/workflowGrid.ts";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
@@ -33,6 +33,16 @@ import {
 	displayName,
 	type AgentDef,
 } from "./lib/agentDefinitions.ts";
+import {
+	renderStatusCard,
+	installContextFooter,
+	renderToolCallLine,
+	truncateOutput,
+	truncateText,
+	lastNonEmptyLine,
+	clearSessionFiles,
+	type StatusValue,
+} from "./lib/workflowKit.ts";
 
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
@@ -142,52 +152,19 @@ export default function (pi: ExtensionAPI) {
 	// ── Grid Rendering ───────────────────────────
 
 	function renderCard(state: AgentState, colWidth: number, theme: any): string[] {
-		const w = colWidth - 2;
-		const truncate = (s: string, max: number) => s.length > max ? s.slice(0, max - 3) + "..." : s;
-
-		const statusColor = state.status === "idle" ? "dim"
-			: state.status === "running" ? "accent"
-			: state.status === "done" ? "success" : "error";
-		const statusIcon = state.status === "idle" ? "○"
-			: state.status === "running" ? "●"
-			: state.status === "done" ? "✓" : "✗";
-
-		const name = displayName(state.def.name);
-		const nameStr = theme.fg("accent", theme.bold(truncate(name, w)));
-		const nameVisible = Math.min(name.length, w);
-
-		const statusStr = `${statusIcon} ${state.status}`;
-		const timeStr = state.status !== "idle" ? ` ${Math.round(state.elapsed / 1000)}s` : "";
-		const statusLine = theme.fg(statusColor, statusStr + timeStr);
-		const statusVisible = statusStr.length + timeStr.length;
-
-		// Context bar: 5 blocks + percent
 		const filled = Math.ceil(state.contextPct / 20);
 		const bar = "#".repeat(filled) + "-".repeat(5 - filled);
 		const ctxStr = `[${bar}] ${Math.ceil(state.contextPct)}%`;
-		const ctxLine = theme.fg("dim", ctxStr);
-		const ctxVisible = ctxStr.length;
 
-		const workRaw = state.task
-			? (state.lastWork || state.task)
-			: state.def.description;
-		const workText = truncate(workRaw, Math.min(50, w - 1));
-		const workLine = theme.fg("muted", workText);
-		const workVisible = workText.length;
-
-		const top = "┌" + "─".repeat(w) + "┐";
-		const bot = "└" + "─".repeat(w) + "┘";
-		const border = (content: string, visLen: number) =>
-			theme.fg("dim", "│") + content + " ".repeat(Math.max(0, w - visLen)) + theme.fg("dim", "│");
-
-		return [
-			theme.fg("dim", top),
-			border(" " + nameStr, 1 + nameVisible),
-			border(" " + statusLine, 1 + statusVisible),
-			border(" " + ctxLine, 1 + ctxVisible),
-			border(" " + workLine, 1 + workVisible),
-			theme.fg("dim", bot),
-		];
+		return renderStatusCard({
+			name: displayName(state.def.name),
+			status: state.status as StatusValue,
+			elapsed: state.elapsed,
+			workText: state.task ? (state.lastWork || state.task) : state.def.description,
+			theme,
+			colWidth,
+			extraLines: [{ text: theme.fg("dim", ctxStr), visibleLen: ctxStr.length }],
+		});
 	}
 
 	function updateWidget() {
@@ -241,7 +218,7 @@ export default function (pi: ExtensionAPI) {
 		const agentKey = state.def.name.toLowerCase().replace(/\s+/g, "-");
 		const agentSessionFile = join(sessionDir, `team-${agentKey}.json`);
 
-		return runSpecialistSpawn(
+		return spawnChildAgent(
 			import.meta.url,
 			{
 				task,
@@ -284,7 +261,7 @@ export default function (pi: ExtensionAPI) {
 			if (exitCode === 0) {
 				state.sessionFile = agentSessionFile;
 			}
-			state.lastWork = output.split("\n").filter((l: string) => l.trim()).pop() || "";
+			state.lastWork = lastNonEmptyLine(output);
 			updateWidget();
 			ctx.ui.notify(
 				`${displayName(state.def.name)} ${state.status} in ${Math.round(state.elapsed / 1000)}s`,
@@ -325,9 +302,7 @@ export default function (pi: ExtensionAPI) {
 
 				const result = await dispatchAgent(agent, task, ctx);
 
-				const truncated = result.output.length > 8000
-					? result.output.slice(0, 8000) + "\n\n... [truncated]"
-					: result.output;
+				const truncated = truncateOutput(result.output);
 
 				const status = result.exitCode === 0 ? "done" : "error";
 				const summary = `[${agent}] ${status} in ${Math.round(result.elapsed / 1000)}s`;
@@ -354,14 +329,7 @@ export default function (pi: ExtensionAPI) {
 		renderCall(args, theme) {
 			const agentName = (args as any).agent || "?";
 			const task = (args as any).task || "";
-			const preview = task.length > 60 ? task.slice(0, 57) + "..." : task;
-			return new Text(
-				theme.fg("toolTitle", theme.bold("dispatch_agent ")) +
-				theme.fg("accent", agentName) +
-				theme.fg("dim", " — ") +
-				theme.fg("muted", preview),
-				0, 0,
-			);
+			return renderToolCallLine(theme, "dispatch_agent", agentName, truncateText(task, 60));
 		},
 
 		renderResult(result, options, theme) {
@@ -400,25 +368,7 @@ export default function (pi: ExtensionAPI) {
 		// ── Commands ─────────────────────────────────
 
 		function installFooter(ctx: any) {
-			ctx.ui.setFooter((_tui: any, theme: any, _footerData: any) => ({
-				dispose: () => {},
-				invalidate() {},
-				render(width: number): string[] {
-					const model = ctx.model?.id || "no-model";
-					const usage = ctx.getContextUsage();
-					const pct = usage ? usage.percent : 0;
-					const filled = Math.round(pct / 10);
-					const bar = "#".repeat(filled) + "-".repeat(10 - filled);
-
-					const left = theme.fg("dim", ` ${model}`) +
-						theme.fg("muted", " · ") +
-						theme.fg("accent", activeTeamName);
-					const right = theme.fg("dim", `[${bar}] ${Math.round(pct)}% `);
-					const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
-
-					return [truncateToWidth(left + pad + right, width)];
-				},
-			}));
+			installContextFooter(ctx, activeTeamName);
 		}
 
 		function enableTeamMode(ctx: any) {
@@ -579,16 +529,7 @@ ${agentCatalog}`,
 			contextWindow = _ctx.model?.contextWindow || 0;
 			allToolNames = pi.getAllTools().map((t) => t.name);
 
-			// Wipe old team session files so team subagents start fresh without
-			// touching chain sessions or other project-owned JSON.
-			const sessDir = join(_ctx.cwd, ".pi", "agent-sessions");
-			if (existsSync(sessDir)) {
-				for (const f of readdirSync(sessDir)) {
-					if (f.startsWith("team-") && f.endsWith(".json")) {
-						try { unlinkSync(join(sessDir, f)); } catch {}
-					}
-				}
-		}
+			clearSessionFiles(join(_ctx.cwd, ".pi", "agent-sessions"), "team-");
 
 		loadAgents(_ctx.cwd);
 

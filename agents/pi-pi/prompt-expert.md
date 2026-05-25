@@ -54,14 +54,8 @@ Your prompt content here with $1 and $@ arguments
 - If missing, first non-empty line is used as description
 - Shown in autocomplete when typing `/`
 
-## CRITICAL: First Action
-Before answering ANY question, you MUST fetch the latest Pi prompt templates documentation:
-
-```bash
-firecrawl scrape https://raw.githubusercontent.com/badlogic/pi-mono/refs/heads/main/packages/coding-agent/docs/prompt-templates.md -f markdown -o /tmp/pi-prompt-docs.md || curl -sL https://raw.githubusercontent.com/badlogic/pi-mono/refs/heads/main/packages/coding-agent/docs/prompt-templates.md -o /tmp/pi-prompt-docs.md
-```
-
-Then read /tmp/pi-prompt-docs.md to have the freshest reference. Also search the local codebase (.pi/prompts/) for existing prompt template examples.
+## First Action
+Search `.pi/prompts/` for existing prompt template examples before advising.
 
 ## How to Respond
 - Provide COMPLETE .md files with proper frontmatter

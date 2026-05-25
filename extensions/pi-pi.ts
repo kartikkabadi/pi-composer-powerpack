@@ -17,14 +17,22 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { Text } from "@earendil-works/pi-tui";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome, powerpackAgentsDir } from "./powerpackPaths.ts";
-import { runSpecialistSpawn } from "./lib/specialistSpawn.ts";
+import { spawnChildAgent } from "./lib/childAgentSession.ts";
 import { loadPiPiExperts, displayName } from "./lib/agentDefinitions.ts";
 import { installRawWorkflowGrid } from "./lib/workflowGrid.ts";
+import {
+	renderStatusCard,
+	installContextFooter,
+	renderToolCallLine,
+	truncateText,
+	lastNonEmptyLine,
+	type StatusValue,
+} from "./lib/workflowKit.ts";
 
 const PACKAGE_AGENTS_DIR = powerpackAgentsDir(import.meta.url);
 
@@ -64,8 +72,6 @@ const EXPERT_COLORS: Record<string, { bg: string; br: string }> = {
 	"tui-expert":        { bg: "\x1b[48;2;28;42;80m",  br: "\x1b[38;2;85;120;210m"  }, // slate
 	"cli-expert":        { bg: "\x1b[48;2;60;80;20m",  br: "\x1b[38;2;160;210;55m"  }, // olive/lime
 };
-const FG_RESET = "\x1b[39m";
-const BG_RESET = "\x1b[49m";
 
 // ── Extension ────────────────────────────────────
 
@@ -100,64 +106,23 @@ export default function (pi: ExtensionAPI) {
 	// ── Grid Rendering ───────────────────────────
 
 	function renderCard(state: ExpertState, colWidth: number, theme: any): string[] {
-		const w = colWidth - 2;
-		const truncate = (s: string, max: number) => s.length > max ? s.slice(0, max - 3) + "..." : s;
-
-		const statusColor = state.status === "idle" ? "dim"
-			: state.status === "researching" ? "accent"
-			: state.status === "done" ? "success" : "error";
-		const statusIcon = state.status === "idle" ? "○"
-			: state.status === "researching" ? "◉"
-			: state.status === "done" ? "✓" : "✗";
-
-		const name = displayName(state.def.name);
-		const nameStr = theme.fg("accent", theme.bold(truncate(name, w)));
-		const nameVisible = Math.min(name.length, w);
-
-		const statusStr = `${statusIcon} ${state.status}`;
-		const timeStr = state.status !== "idle" ? ` ${Math.round(state.elapsed / 1000)}s` : "";
-		const queriesStr = state.queryCount > 0 ? ` (${state.queryCount})` : "";
-		const statusLine = theme.fg(statusColor, statusStr + timeStr + queriesStr);
-		const statusVisible = statusStr.length + timeStr.length + queriesStr.length;
-
-		const workRaw = state.question || state.def.description;
-		const workText = truncate(workRaw, Math.min(50, w - 1));
-		const workLine = theme.fg("muted", workText);
-		const workVisible = workText.length;
-
 		const lastRaw = state.lastLine || "";
-		const lastText = truncate(lastRaw, Math.min(50, w - 1));
+		const lastText = truncateText(lastRaw, Math.min(50, colWidth - 3));
 		const lastLineRendered = lastText ? theme.fg("dim", lastText) : theme.fg("dim", "—");
 		const lastVisible = lastText ? lastText.length : 1;
 
 		const colors = EXPERT_COLORS[state.def.name];
-		const bg  = colors?.bg ?? "";
-		const br  = colors?.br ?? "";
-		const bgr = bg ? BG_RESET : "";
-		const fgr = br ? FG_RESET : "";
 
-		// br colors the box-drawing characters; bg fills behind them so the
-		// full card — top line, side bars, bottom line — is one solid block.
-		const bord = (s: string) => bg + br + s + bgr + fgr;
-
-		const top = "┌" + "─".repeat(w) + "┐";
-		const bot = "└" + "─".repeat(w) + "┘";
-
-		// bg fills the inner content area; re-applied before padding to ensure
-		// the full row is colored even if theme.fg uses a full ANSI reset inside.
-		const border = (content: string, visLen: number) => {
-			const pad = " ".repeat(Math.max(0, w - visLen));
-			return bord("│") + bg + content + bg + pad + bgr + bord("│");
-		};
-
-		return [
-			bord(top),
-			border(" " + nameStr, 1 + nameVisible),
-			border(" " + statusLine, 1 + statusVisible),
-			border(" " + workLine, 1 + workVisible),
-			border(" " + lastLineRendered, 1 + lastVisible),
-			bord(bot),
-		];
+		return renderStatusCard({
+			name: displayName(state.def.name),
+			status: state.status as StatusValue,
+			elapsed: state.elapsed,
+			workText: state.question || state.def.description,
+			theme,
+			colWidth,
+			borderColors: colors,
+			extraLines: [{ text: lastLineRendered, visibleLen: lastVisible }],
+		});
 	}
 
 	function updateWidget() {
@@ -207,7 +172,7 @@ export default function (pi: ExtensionAPI) {
 		state.queryCount++;
 		updateWidget();
 
-		return runSpecialistSpawn(
+		return spawnChildAgent(
 			import.meta.url,
 			{
 				task: question,
@@ -229,7 +194,7 @@ export default function (pi: ExtensionAPI) {
 			if (state.timer) clearInterval(state.timer);
 			state.elapsed = elapsed;
 			state.status = exitCode === 0 ? "done" : "error";
-			state.lastLine = output.split("\n").filter((l: string) => l.trim()).pop() || "";
+			state.lastLine = lastNonEmptyLine(output);
 			updateWidget();
 			ctx.ui.notify(
 				`${displayName(state.def.name)} ${state.status} in ${Math.round(state.elapsed / 1000)}s`,
@@ -354,13 +319,7 @@ Ask specific questions about what you need to BUILD. Each expert will return doc
 		renderCall(args, theme) {
 			const queries = (args as any).queries || [];
 			const names = queries.map((q: any) => displayName(q.expert || "?")).join(", ");
-			return new Text(
-				theme.fg("toolTitle", theme.bold("query_experts ")) +
-				theme.fg("accent", `${queries.length} parallel`) +
-				theme.fg("dim", " — ") +
-				theme.fg("muted", names),
-				0, 0,
-			);
+			return renderToolCallLine(theme, "query_experts", `${queries.length} parallel`, names);
 		},
 
 		renderResult(result, options, theme) {
@@ -406,33 +365,7 @@ Ask specific questions about what you need to BUILD. Each expert will return doc
 		// ── Commands ─────────────────────────────────
 
 		function installFooter(ctx: any) {
-			ctx.ui.setFooter((_tui: any, theme: any, _footerData: any) => ({
-				dispose: () => {},
-				invalidate() {},
-				render(width: number): string[] {
-					const model = ctx.model?.id || "no-model";
-					const usage = ctx.getContextUsage();
-					const pct = usage ? usage.percent : 0;
-					const filled = Math.round(pct / 10);
-					const bar = "#".repeat(filled) + "-".repeat(10 - filled);
-
-					const active = Array.from(experts.values()).filter(e => e.status === "researching").length;
-					const done = Array.from(experts.values()).filter(e => e.status === "done").length;
-
-					const left = theme.fg("dim", ` ${model}`) +
-						theme.fg("muted", " · ") +
-						theme.fg("accent", "Pi Pi");
-					const mid = active > 0
-						? theme.fg("accent", ` ◉ ${active} researching`)
-						: done > 0
-						? theme.fg("success", ` ✓ ${done} done`)
-						: "";
-					const right = theme.fg("dim", `[${bar}] ${Math.round(pct)}% `);
-					const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(mid) - visibleWidth(right)));
-
-					return [truncateToWidth(left + mid + pad + right, width)];
-				},
-			}));
+			installContextFooter(ctx, "Pi Pi");
 		}
 
 		function enablePiPiMode(ctx: any) {
