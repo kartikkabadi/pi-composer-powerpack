@@ -20,8 +20,4 @@ When working on this repo on Kartik's machine, these skills may apply:
 
 ## Release
 
-```bash
-./scripts/release-one.sh VERSION "subject"
-```
-
-Review version and paths before running — script pushes and creates GitHub release.
+See [CONTRIBUTING.md](CONTRIBUTING.md) release section. Script: `./scripts/release-one.sh VERSION "subject"` — review version and paths before running.

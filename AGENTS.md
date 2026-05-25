@@ -2,16 +2,11 @@
 
 Guide + curated assets for Pi + Cursor Composer 2.5 + multi-agent workflows.
 
-**Install:** Pi GitHub installer only — see [README Quick start](README.md#install). Do not add `install.sh`, shell launchers, or a separate npm setup path unless the maintainer explicitly requests it.
+## Agent bootstrap
 
-## Read order
+Before picking work, read [docs/agents/README.md](docs/agents/README.md). Issue queue: [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md). Domain: [docs/agents/domain.md](docs/agents/domain.md).
 
-1. [README.md](README.md) — user install and commands
-2. [docs/architecture.md](docs/architecture.md) — extension tiers and config cascade
-3. [docs/CONTEXT.md](docs/CONTEXT.md) — glossary
-4. [docs/ROADMAP.md](docs/ROADMAP.md) — shipped vs next
-
-Maintainer-only machine context: [AGENTS.maintainer.md](AGENTS.maintainer.md) (optional).
+**Install:** Pi GitHub installer only — see [README Quick start](README.md#install). Do not add `install.sh`, shell launchers, or a separate npm package setup path unless the maintainer explicitly requests it.
 
 ## Working agreements
 
@@ -24,9 +19,9 @@ Maintainer-only machine context: [AGENTS.maintainer.md](AGENTS.maintainer.md) (o
 ## Review guidelines
 
 - P0: secrets, private data, or large binaries in repo
-- After README/manifest/extension changes: `check:secrets`, `pack:dry`, `lint`, `typecheck`, `test`
+- After README/manifest/extension changes: run the [CONTRIBUTING.md](CONTRIBUTING.md) PR checklist (`check:secrets`, `pack:dry`, `lint`, `typecheck`, `test`)
 - Before release: isolated `pi install` smoke on the GitHub URL
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Use standard git fork/PR flow; `sfw` recommended if Socket Firewall is available.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Maintainer-only context: [AGENTS.maintainer.md](AGENTS.maintainer.md).

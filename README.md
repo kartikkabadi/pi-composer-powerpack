@@ -8,6 +8,8 @@
 
 For developers on **Pi ≥ 0.75.3** who want Composer fast mode with opinionated orchestration, not a separate IDE extension.
 
+**Agents:** read [docs/agents/README.md](docs/agents/README.md).
+
 ## Quick start
 
 ### Install
