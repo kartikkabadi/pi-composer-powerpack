@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import * as net from "node:net";
+import { createConnection, createServer } from "node:net";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -30,7 +30,7 @@ after(() => {
 
 test("sendEnvelope receives pong from mock peer", async () => {
 	const endpoint = join(sockDir, "peer.sock");
-	const server = net.createServer((socket) => {
+	const server = createServer((socket) => {
 		let buf = "";
 		socket.on("data", (chunk) => {
 			buf += chunk.toString("utf-8");
@@ -77,7 +77,7 @@ test("sendEnvelope receives pong from mock peer", async () => {
 
 test("sendEnvelope rejects nack responses", async () => {
 	const endpoint = join(sockDir, "nack.sock");
-	const server = net.createServer((socket) => {
+	const server = createServer((socket) => {
 		let buf = "";
 		socket.on("data", (chunk) => {
 			buf += chunk.toString("utf-8");
@@ -114,12 +114,12 @@ test("injectable createConnection can be swapped for tests", async () => {
 	setNetHooksForTests({
 		createConnection: (opts) => {
 			connectCalls++;
-			return net.createConnection(opts);
+			return createConnection(opts);
 		},
-		createServer: net.createServer,
+		createServer: createServer,
 	});
 
-	const server = net.createServer((socket) => {
+	const server = createServer((socket) => {
 		socket.on("data", () => {
 			socket.write(JSON.stringify({ type: "ack", msg_id: "x" }) + "\n");
 			socket.end();
@@ -146,7 +146,7 @@ test("injectable createConnection can be swapped for tests", async () => {
 });
 
 test("readOneLineCapped rejects oversized lines", async () => {
-	const server = net.createServer((socket) => {
+	const server = createServer((socket) => {
 		socket.write("x".repeat(200) + "\n");
 	});
 	const endpoint = join(sockDir, "bigline.sock");
@@ -155,7 +155,7 @@ test("readOneLineCapped rejects oversized lines", async () => {
 		server.listen(endpoint, resolve);
 	});
 
-	const socket = net.createConnection({ path: endpoint });
+	const socket = createConnection({ path: endpoint });
 	await assert.rejects(readOneLineCapped(socket, 64), /line too large/);
 	socket.destroy();
 	await new Promise((resolve) => server.close(resolve));

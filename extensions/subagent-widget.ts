@@ -12,12 +12,13 @@
  *   /subclear                              — clear all subagent widgets
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ChildProcess } from "node:child_process";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 import { Container, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { spawnChildAgent } from "./lib/childAgentSession.ts";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { piAgentHome } from "./powerpackPaths.ts";
@@ -31,20 +32,25 @@ interface SubState {
 	elapsed: number;
 	sessionFile: string;   // persistent JSONL session path — used by /subcont to resume
 	turnCount: number;     // increments each time /subcont continues this agent
-	proc?: any;            // active ChildProcess ref (for kill on /subrm)
+	proc?: ChildProcess;   // active ChildProcess ref (for kill on /subrm)
 }
 
+/**
+ * Subagent Widget extension.
+ * Provides /sub, /subclear, /subrm, and /subcont commands for spawning
+ * background Pi subagents with persistent sessions and live status widgets.
+ */
 export default function (pi: ExtensionAPI) {
 	const agents: Map<number, SubState> = new Map();
 	let nextId = 1;
-	let widgetCtx: any;
+	let widgetCtx: ExtensionContext | undefined;
 
 	// ── Session file helpers ──────────────────────────────────────────────────
 
 	function makeSessionFile(id: number): string {
-		const dir = path.join(piAgentHome(), "sessions", "subagents");
-		fs.mkdirSync(dir, { recursive: true });
-		return path.join(dir, `subagent-${id}-${Date.now()}.jsonl`);
+		const dir = join(piAgentHome(), "sessions", "subagents");
+		mkdirSync(dir, { recursive: true });
+		return join(dir, `subagent-${id}-${Date.now()}.jsonl`);
 	}
 
 	// ── Widget rendering ──────────────────────────────────────────────────────
@@ -54,7 +60,7 @@ export default function (pi: ExtensionAPI) {
 
 		for (const [id, state] of Array.from(agents.entries())) {
 			const key = `sub-${id}`;
-			widgetCtx.ui.setWidget(key, (_tui: any, theme: any) => {
+			widgetCtx.ui.setWidget(key, (_tui, theme) => {
 				const container = new Container();
 				const borderFn = (s: string) => theme.fg("dim", s);
 
@@ -113,7 +119,7 @@ export default function (pi: ExtensionAPI) {
 	function spawnAgent(
 		state: SubState,
 		prompt: string,
-		ctx: any,
+		ctx: ExtensionContext,
 	): Promise<void> {
 		state.textChunks = [];
 		return spawnChildAgent(

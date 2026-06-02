@@ -15,6 +15,7 @@ import {
 	type RegistryEntry,
 } from "./types.ts";
 
+/** Dependency bag for coms tool registration. */
 export interface ComsToolsDeps {
 	getIdentity: () => ComsIdentity | null;
 	getCurrentInbound: () => InboundContext | null;
@@ -22,6 +23,7 @@ export interface ComsToolsDeps {
 	pingPeer: (endpoint: string) => Promise<AgentCard | null>;
 }
 
+/** Register coms_list, coms_send, coms_get, coms_await, and coms_reply tools with the Pi extension API. */
 export function registerComsTools(pi: ExtensionAPI, deps: ComsToolsDeps): void {
 	pi.registerTool({
 		name: "coms_list",

@@ -1,5 +1,5 @@
-import * as os from "node:os";
-import * as path from "node:path";
+import { homedir } from "node:os";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 export type BashRule = {
 	pattern: string;
@@ -22,20 +22,20 @@ export type ToolCallEvaluation = {
 function resolvePath(p: string, cwd: string): string {
 	let target = p;
 	if (target.startsWith("~")) {
-		target = path.join(os.homedir(), target.slice(1));
+		target = join(homedir(), target.slice(1));
 	}
-	return path.resolve(cwd, target);
+	return resolve(cwd, target);
 }
 
 function isPathMatch(targetPath: string, pattern: string, cwd: string): boolean {
 	const resolvedPattern = pattern.startsWith("~")
-		? path.join(os.homedir(), pattern.slice(1))
+		? join(homedir(), pattern.slice(1))
 		: pattern;
 
 	if (resolvedPattern.endsWith("/")) {
-		const absolutePattern = path.isAbsolute(resolvedPattern)
+		const absolutePattern = isAbsolute(resolvedPattern)
 			? resolvedPattern
-			: path.resolve(cwd, resolvedPattern);
+			: resolve(cwd, resolvedPattern);
 		return targetPath.startsWith(absolutePattern);
 	}
 
@@ -47,7 +47,7 @@ function isPathMatch(targetPath: string, pattern: string, cwd: string): boolean 
 		`^${regexPattern}$|^${regexPattern}/|/${regexPattern}$|/${regexPattern}/`,
 	);
 
-	const relativePath = path.relative(cwd, targetPath);
+	const relativePath = relative(cwd, targetPath);
 
 	return (
 		regex.test(targetPath) ||

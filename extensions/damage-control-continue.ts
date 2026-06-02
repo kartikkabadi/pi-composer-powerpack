@@ -14,9 +14,9 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { parse as yamlParse } from "yaml";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import * as os from "os";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "os";
 import { applyExtensionDefaults } from "./themeMap.ts";
 import { powerpackPath } from "./powerpackPaths.ts";
 import {
@@ -27,6 +27,12 @@ import {
 const SECRET_PATTERN =
 	/(api[_-]?key|token|secret|password|bearer|sk-[a-zA-Z0-9]+)\s*[:=]\s*\S+/gi;
 
+/**
+ * Redact a tool invocation for safe logging.
+ * Returns the log-safe string representation of a tool call,
+ * with secrets redacted and long content truncated.
+ * When PI_DAMAGE_CONTROL_LOG_RAW=1, returns the raw command/input.
+ */
 export function redactInvocation(toolName: string, input: unknown): string {
 	if (process.env.PI_DAMAGE_CONTROL_LOG_RAW === "1") {
 		if (
@@ -51,6 +57,12 @@ export function redactInvocation(toolName: string, input: unknown): string {
 	return JSON.stringify(sanitized);
 }
 
+/**
+ * Sanitize tool input by redacting secrets and truncating long content.
+ * Replaces api keys, tokens, and secrets with [REDACTED] markers.
+ * Truncates content fields over 200 characters.
+ * When PI_DAMAGE_CONTROL_LOG_RAW=1, returns input unchanged.
+ */
 function sanitizeToolInput(_toolName: string, input: unknown): unknown {
 	if (process.env.PI_DAMAGE_CONTROL_LOG_RAW === "1") {
 		return input;
@@ -108,6 +120,12 @@ function continueFeedback(toolName: string, violationReason: string, invocation:
 	].join("\n");
 }
 
+/**
+ * Damage-Control (continue) extension.
+ * Intercepts destructive tool calls and replaces them with actionable
+ * feedback so the agent can adapt rather than aborting outright.
+ * Blocks unsafe operations and guides the agent toward safe alternatives.
+ */
 export default function (pi: ExtensionAPI) {
 	let rules: DamageControlRules = {
 		bashToolPatterns: [],
@@ -118,19 +136,19 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_start", async (_event, ctx) => {
 		applyExtensionDefaults(import.meta.url, ctx);
-		const projectRulesPath = path.join(ctx.cwd, ".pi", "damage-control-rules.yaml");
-		const globalRulesPath = path.join(os.homedir(), ".pi", "damage-control-rules.yaml");
+		const projectRulesPath = join(ctx.cwd, ".pi", "damage-control-rules.yaml");
+		const globalRulesPath = join(homedir(), ".pi", "damage-control-rules.yaml");
 		const packageRulesPath = powerpackPath(import.meta.url, "config", "damage-control-rules.yaml");
-		const rulesPath = fs.existsSync(projectRulesPath)
+		const rulesPath = existsSync(projectRulesPath)
 			? projectRulesPath
-			: fs.existsSync(globalRulesPath)
+			: existsSync(globalRulesPath)
 				? globalRulesPath
-				: fs.existsSync(packageRulesPath)
+				: existsSync(packageRulesPath)
 					? packageRulesPath
 					: null;
 		try {
 			if (rulesPath) {
-				const content = fs.readFileSync(rulesPath, "utf8");
+				const content = readFileSync(rulesPath, "utf8");
 				const loaded = yamlParse(content) as Partial<DamageControlRules>;
 				rules = {
 					bashToolPatterns: loaded.bashToolPatterns || [],

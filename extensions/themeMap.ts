@@ -10,8 +10,10 @@
  *   mono-black
  */
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { basename } from "node:path";
+
+export type { Theme };
 
 // ── Theme assignments ──────────────────────────────────────────────────────
 //

@@ -7,9 +7,9 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import * as net from "node:net";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { type Server, type Socket } from "node:net";
+import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import {
 	fallbackColor,
 	isValidHex,
@@ -38,9 +38,10 @@ import {
 } from "./types.ts";
 import { createRenderPool, installPoolWidget } from "./widget.ts";
 
+/** Mutable state for the coms session lifecycle. */
 export interface ComsSessionState {
 	identity: ComsIdentity | null;
-	server: net.Server | null;
+	server: Server | null;
 	pingTimer: NodeJS.Timeout | null;
 	keepaliveTimer: NodeJS.Timeout | null;
 	includeExplicit: boolean;
@@ -50,6 +51,7 @@ export interface ComsSessionState {
 	shuttingDown: boolean;
 }
 
+/** Create a fresh ComsSessionState with all fields null/false. */
 export function createSessionState(): ComsSessionState {
 	return {
 		identity: null,
@@ -64,6 +66,7 @@ export function createSessionState(): ComsSessionState {
 	};
 }
 
+/** Boot the coms session: resolve identity, bind endpoint, register in the pool, and start timers. */
 export async function bootSession(
 	pi: ExtensionAPI,
 	state: ComsSessionState,
@@ -103,17 +106,17 @@ export async function bootSession(
 	const model = ctx.model?.id ?? "unknown";
 
 	try {
-		fs.mkdirSync(path.join(COMS_DIR, "projects", project, "agents"), { recursive: true });
+		mkdirSync(join(COMS_DIR, "projects", project, "agents"), { recursive: true });
 		if (process.platform !== "win32") {
-			fs.mkdirSync(path.join(COMS_DIR, "sockets"), { recursive: true });
-			try { fs.chmodSync(COMS_DIR, 0o700); } catch { /* best-effort */ }
+			mkdirSync(join(COMS_DIR, "sockets"), { recursive: true });
+			try { chmodSync(COMS_DIR, 0o700); } catch { /* best-effort */ }
 		}
 	} catch (err) {
 		ctx.ui?.notify?.(`📡 coms: failed to create dirs — ${err instanceof Error ? err.message : String(err)}`, "error");
 		return;
 	}
 
-	const connHandler = (socket: net.Socket) => runtime.connHandler(socket);
+	const connHandler = (socket: Socket) => runtime.connHandler(socket);
 	try {
 		state.server = await bindEndpoint(endpoint, connHandler);
 	} catch (err) {
@@ -160,7 +163,7 @@ export async function bootSession(
 		if (!state.identity) return;
 		try {
 			const ctxInner = state.currentCtx;
-			const missingBeforeWrite = !fs.existsSync(state.identity.registryFile);
+			const missingBeforeWrite = !existsSync(state.identity.registryFile);
 			const live: RegistryEntry = {
 				session_id: state.identity.session_id,
 				name: state.identity.name,
@@ -180,7 +183,7 @@ export async function bootSession(
 			writeRegistryAtomic(live, state.identity.project);
 			if (missingBeforeWrite) {
 				pi.appendEntry("coms-log", { event: "self_heal", session_id: state.identity.session_id, reason: "registry file missing" });
-				if (!fs.existsSync(state.identity.registryFile)) {
+				if (!existsSync(state.identity.registryFile)) {
 					writeRegistryAtomic(live, state.identity.project);
 				}
 			}
@@ -191,6 +194,7 @@ export async function bootSession(
 	refreshPool().catch(() => {});
 }
 
+/** Fulfill the most recent unfulfilled inbound request with the agent's last response. */
 export async function handleAgentEnd(
 	pi: ExtensionAPI,
 	state: ComsSessionState,
@@ -255,6 +259,7 @@ export async function handleAgentEnd(
 	}
 }
 
+/** Gracefully shut down coms: stop timers, close server, remove registry entry, reject pending replies. */
 export async function cleanShutdown(
 	pi: ExtensionAPI,
 	state: ComsSessionState,
@@ -271,7 +276,7 @@ export async function cleanShutdown(
 	}
 	if (state.identity) {
 		if (process.platform !== "win32") {
-			try { fs.unlinkSync(state.identity.endpoint); } catch { /* ignore */ }
+			try { unlinkSync(state.identity.endpoint); } catch { /* ignore */ }
 		}
 		try { removeRegistryEntry(state.identity.project, state.identity.name); } catch { /* ignore */ }
 		try {

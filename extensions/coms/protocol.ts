@@ -1,15 +1,16 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import * as crypto from "node:crypto";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { createHash, randomBytes } from "node:crypto";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { parseMarkdownFrontmatter } from "../lib/frontmatter.ts";
 import { COMS_DIR, FALLBACK_PALETTE, type CliFlags, type Envelope, type PingEnvelope } from "./types.ts";
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
+/** Generate a 26-character Crockford Base32 ULID using current time + random bytes. */
 export function ulid(): string {
 	const time = Date.now();
-	const rand = crypto.randomBytes(10);
+	const rand = randomBytes(10);
 	let timeStr = "";
 	let t = time;
 	for (let i = 9; i >= 0; i--) {
@@ -30,6 +31,7 @@ export function ulid(): string {
 	return (timeStr + randStr).slice(0, 26);
 }
 
+/** Wrap a string in ANSI 24-bit foreground color escape codes from a #RRGGBB hex value. */
 export function hexFg(hex: string, s: string): string {
 	const r = parseInt(hex.slice(1, 3), 16);
 	const g = parseInt(hex.slice(3, 5), 16);
@@ -37,15 +39,18 @@ export function hexFg(hex: string, s: string): string {
 	return `\x1b[38;2;${r};${g};${b}m${s}\x1b[39m`;
 }
 
+/** Return true if the string is a valid 7-character #RRGGBB hex color. */
 export function isValidHex(hex: string): boolean {
 	return /^#[0-9a-fA-F]{6}$/.test(hex);
 }
 
+/** Derive a deterministic fallback color from a session ID using SHA-256. */
 export function fallbackColor(sessionId: string): string {
-	const h = crypto.createHash("sha256").update(sessionId).digest("hex").slice(0, 8);
+	const h = createHash("sha256").update(sessionId).digest("hex").slice(0, 8);
 	return FALLBACK_PALETTE[Number(BigInt("0x" + h)) % FALLBACK_PALETTE.length];
 }
 
+/** Parse YAML frontmatter from a markdown string, extracting name, description, and color. */
 export function parseFrontmatter(raw: string): { name?: string; description?: string; color?: string; body: string } {
 	const { fields, body } = parseMarkdownFrontmatter(raw);
 	return {
@@ -56,17 +61,20 @@ export function parseFrontmatter(raw: string): { name?: string; description?: st
 	};
 }
 
+/** Build a platform-appropriate endpoint path (unix socket or named pipe) for a session. */
 export function makeEndpoint(sessionId: string): string {
 	if (process.platform === "win32") {
 		return `\\\\.\\pipe\\pi-coms-${sessionId}`;
 	}
-	return path.join(COMS_DIR, "sockets", `${sessionId}.sock`);
+	return join(COMS_DIR, "sockets", `${sessionId}.sock`);
 }
 
+/** Return the current timestamp as an ISO-8601 string. */
 export function nowIso(): string {
 	return new Date().toISOString();
 }
 
+/** Construct a ping envelope addressed from senderSession/senderEndpoint. */
 export function makePingEnvelope(senderSession: string, senderEndpoint: string): PingEnvelope {
 	return {
 		type: "ping",
@@ -78,6 +86,7 @@ export function makePingEnvelope(senderSession: string, senderEndpoint: string):
 	};
 }
 
+/** Shorten a model identifier: strip the "claude-" prefix and cap at 14 characters. */
 export function abbreviateModel(model: string): string {
 	let m = model || "";
 	if (m.startsWith("claude-")) m = m.slice("claude-".length);
@@ -85,6 +94,7 @@ export function abbreviateModel(model: string): string {
 	return m;
 }
 
+/** Read coms-related CLI flags (name, purpose, project, color, explicit) from the Pi extension API. */
 export function readCliFlags(pi: ExtensionAPI): CliFlags {
 	const name = pi.getFlag("name") as string | undefined;
 	const purpose = pi.getFlag("purpose") as string | undefined;
@@ -100,8 +110,9 @@ export function readCliFlags(pi: ExtensionAPI): CliFlags {
 	};
 }
 
+/** Return true if the parsed object has the required fields of a valid coms Envelope. */
 export function isValidEnvelope(obj: any): obj is Envelope {
-	return (
+	return !!(
 		obj &&
 		typeof obj === "object" &&
 		typeof obj.type === "string" &&
@@ -111,6 +122,7 @@ export function isValidEnvelope(obj: any): obj is Envelope {
 	);
 }
 
+/** Search argv for --system-prompt or --append-system-prompt pointing to an existing .md file. */
 export function findSystemPromptPath(argv: string[]): string | null {
 	const scan = (flag: string): string | null => {
 		for (let i = 0; i < argv.length; i++) {
@@ -118,7 +130,7 @@ export function findSystemPromptPath(argv: string[]): string | null {
 				const candidate = argv[i + 1];
 				if (candidate.endsWith(".md")) {
 					try {
-						if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+						if (existsSync(candidate) && statSync(candidate).isFile()) {
 							return candidate;
 						}
 					} catch {
@@ -132,11 +144,12 @@ export function findSystemPromptPath(argv: string[]): string | null {
 	return scan("--system-prompt") ?? scan("--append-system-prompt");
 }
 
+/** Read frontmatter from the system prompt file found in argv, returning name/description/color. */
 export function readFrontmatterFromArgv(argv: string[]): { name?: string; description?: string; color?: string } {
 	const p = findSystemPromptPath(argv);
 	if (!p) return {};
 	try {
-		const raw = fs.readFileSync(p, "utf-8");
+		const raw = readFileSync(p, "utf-8");
 		const { name, description, color } = parseFrontmatter(raw);
 		return { name, description, color };
 	} catch {

@@ -7,6 +7,7 @@ import {
 } from "./registry.ts";
 import type { ComsIdentity, PeerCard } from "./types.ts";
 
+/** Dependency bag for the coms pool widget renderer. */
 export interface PoolWidgetDeps {
 	getIdentity: () => ComsIdentity | null;
 	getDisplayProject: () => string | null;
@@ -14,6 +15,7 @@ export interface PoolWidgetDeps {
 	peerCards: Map<string, PeerCard>;
 }
 
+/** Create a pool widget renderer that reads registry entries and peer cards to produce terminal lines. */
 export function createRenderPool(deps: PoolWidgetDeps): (width: number, theme: Theme) => string[] {
 	return function renderPool(width: number, theme: Theme): string[] {
 		const identity = deps.getIdentity();
@@ -139,6 +141,7 @@ export function createRenderPool(deps: PoolWidgetDeps): (width: number, theme: T
 	};
 }
 
+/** Register the coms-pool widget in the Pi terminal UI. No-op if the UI is not available. */
 export function installPoolWidget(
 	ctx: ExtensionContext,
 	renderPool: (width: number, theme: Theme) => string[],

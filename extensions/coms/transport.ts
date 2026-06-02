@@ -1,23 +1,26 @@
-import * as net from "node:net";
-import * as fs from "node:fs";
+import { createConnection, createServer, type NetConnectOpts, type Server, type Socket } from "node:net";
+import { existsSync, unlinkSync } from "node:fs";
 import { ACK_TIMEOUT_MS, LINE_CAP_BYTES, type Envelope, type Pong } from "./types.ts";
 
-export type CreateConnectionFn = (options: net.NetConnectOpts) => net.Socket;
-export type CreateServerFn = (connectionListener?: (socket: net.Socket) => void) => net.Server;
+/** Factory function type for creating a net.Socket connection. */
+export type CreateConnectionFn = (options: NetConnectOpts) => Socket;
+/** Factory function type for creating a net.Server. */
+export type CreateServerFn = (connectionListener?: (socket: Socket) => void) => Server;
 
+/** Injectable net dependencies used for testing or mocking socket operations. */
 export interface NetHooks {
 	createConnection: CreateConnectionFn;
 	createServer: CreateServerFn;
 }
 
 const defaultNet: NetHooks = {
-	createConnection: (options) => net.createConnection(options),
-	createServer: (connectionListener) => net.createServer(connectionListener),
+	createConnection: (options) => createConnection(options),
+	createServer: (connectionListener) => createServer(connectionListener),
 };
 
 let netHooks: NetHooks = defaultNet;
 
-/** Test-only: inject mock net.createConnection / createServer. */
+/** Test-only: inject mock createConnection / createServer. */
 export function setNetHooksForTests(hooks: Partial<NetHooks>): void {
 	netHooks = { ...defaultNet, ...hooks };
 }
@@ -27,6 +30,7 @@ export function resetNetHooksForTests(): void {
 	netHooks = defaultNet;
 }
 
+/** Probe whether an existing socket endpoint is actively in use or stale (unreachable). */
 export function probeStaleSocket(endpoint: string): Promise<"in_use" | "stale"> {
 	return new Promise((resolve) => {
 		const sock = netHooks.createConnection({ path: endpoint });
@@ -53,22 +57,23 @@ export function probeStaleSocket(endpoint: string): Promise<"in_use" | "stale"> 
 	});
 }
 
+/** Bind a unix socket or named pipe endpoint, cleaning up stale sockets first. */
 export async function bindEndpoint(
 	endpoint: string,
-	connHandler: (socket: net.Socket) => void,
-): Promise<net.Server> {
-	if (process.platform !== "win32" && fs.existsSync(endpoint)) {
+	connHandler: (socket: Socket) => void,
+): Promise<Server> {
+	if (process.platform !== "win32" && existsSync(endpoint)) {
 		const verdict = await probeStaleSocket(endpoint);
 		if (verdict === "in_use") {
 			throw new Error(`coms: endpoint already in use (${endpoint})`);
 		}
 		try {
-			fs.unlinkSync(endpoint);
+			unlinkSync(endpoint);
 		} catch {
 			// best-effort
 		}
 	}
-	return await new Promise<net.Server>((resolve, reject) => {
+	return await new Promise<Server>((resolve, reject) => {
 		const server = netHooks.createServer(connHandler);
 		server.once("error", reject);
 		server.listen(endpoint, () => {
@@ -78,7 +83,8 @@ export async function bindEndpoint(
 	});
 }
 
-export function readOneLineCapped(socket: net.Socket, maxBytes = LINE_CAP_BYTES): Promise<string> {
+/** Read exactly one newline-terminated line from a socket, rejecting if it exceeds maxBytes. */
+export function readOneLineCapped(socket: Socket, maxBytes = LINE_CAP_BYTES): Promise<string> {
 	return new Promise((resolve, reject) => {
 		let buf = "";
 		let settled = false;
@@ -107,10 +113,12 @@ export function readOneLineCapped(socket: net.Socket, maxBytes = LINE_CAP_BYTES)
 	});
 }
 
-export function readOneLine(socket: net.Socket): Promise<string> {
+/** Read one line from a socket using the default line cap. */
+export function readOneLine(socket: Socket): Promise<string> {
 	return readOneLineCapped(socket, LINE_CAP_BYTES);
 }
 
+/** Send an envelope over a unix socket and wait for the ack/nack reply. Rejects on nack or timeout. */
 export function sendEnvelope(
 	endpoint: string,
 	envelope: Envelope | Pong | { type: string; msg_id?: string; [k: string]: any },

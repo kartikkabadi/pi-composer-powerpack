@@ -1,5 +1,5 @@
 import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { readdirSync, unlinkSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -9,7 +9,7 @@ export const TRUNCATE_WORK = 50;
 
 export type StatusValue = "idle" | "pending" | "running" | "done" | "error" | "researching";
 
-export function statusColor(s: StatusValue): string {
+export function statusColor(s: StatusValue): ThemeColor {
 	switch (s) {
 		case "idle":
 		case "pending":
@@ -66,7 +66,7 @@ export interface StatusCardOptions {
 	status: StatusValue;
 	elapsed: number;
 	workText: string;
-	theme: any;
+	theme: Theme;
 	colWidth: number;
 	extraLines?: CardLine[];
 	borderColors?: { bg: string; br: string };
@@ -131,7 +131,7 @@ export function installContextFooter(
 	ctx: ExtensionContext,
 	label: string,
 ): void {
-	ctx.ui.setFooter((_tui: any, theme: any, _footerData: any) => ({
+	ctx.ui.setFooter((_tui, theme, _footerData) => ({
 		dispose: () => {},
 		invalidate() {},
 		render(width: number): string[] {
@@ -185,7 +185,7 @@ export function createModeToggle(
 // ── Tool Call/Result Rendering ──────────────────────────────────────────────
 
 export function renderToolCallLine(
-	theme: any,
+	theme: Theme,
 	toolTitle: string,
 	label: string,
 	preview: string,
@@ -200,7 +200,7 @@ export function renderToolCallLine(
 }
 
 export function renderToolResultLine(
-	theme: any,
+	theme: Theme,
 	status: "done" | "error",
 	label: string,
 	elapsedMs: number,

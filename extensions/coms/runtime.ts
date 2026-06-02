@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type * as net from "node:net";
+import type { Socket } from "node:net";
 import { isValidEnvelope, makePingEnvelope } from "./protocol.ts";
 import { pruneDeadEntries, pruneDeadEntriesAllProjects } from "./registry.ts";
 import { readOneLineCapped, sendEnvelope } from "./transport.ts";
@@ -17,7 +17,8 @@ import {
 	type ResponseEnvelope,
 } from "./types.ts";
 
-export function ackOk(socket: net.Socket, msg_id: string): void {
+/** Write an ack JSON response and close the socket. Errors are silently ignored. */
+export function ackOk(socket: Socket, msg_id: string): void {
 	try {
 		socket.write(JSON.stringify({ type: "ack", msg_id }) + "\n");
 	} catch {
@@ -30,7 +31,8 @@ export function ackOk(socket: net.Socket, msg_id: string): void {
 	}
 }
 
-export function nack(socket: net.Socket, msg_id: string, error: string): void {
+/** Write a nack JSON response with an error message and close the socket. Errors are silently ignored. */
+export function nack(socket: Socket, msg_id: string, error: string): void {
 	try {
 		socket.write(JSON.stringify({ type: "nack", msg_id, error }) + "\n");
 	} catch {
@@ -43,6 +45,7 @@ export function nack(socket: net.Socket, msg_id: string, error: string): void {
 	}
 }
 
+/** Dependency bag injected into ComsRuntime for testability and decoupling from the Pi extension API. */
 export type ComsRuntimeDeps = {
 	pi: ExtensionAPI;
 	getIdentity: () => ComsIdentity | null;
@@ -56,10 +59,11 @@ export type ComsRuntimeDeps = {
 	renderPool: (width: number, theme: any) => string[];
 };
 
+/** Core runtime that handles inbound prompts, outbound responses, pings, and peer discovery. */
 export class ComsRuntime {
 	constructor(private readonly deps: ComsRuntimeDeps) {}
 
-	handlePrompt(socket: net.Socket, env: PromptEnvelope): void {
+	handlePrompt(socket: Socket, env: PromptEnvelope): void {
 		if (typeof env.hops !== "number" || env.hops >= MAX_HOPS) {
 			nack(socket, env.msg_id, "hops exceeded");
 			return;
@@ -110,7 +114,7 @@ export class ComsRuntime {
 		}
 	}
 
-	handleResponse(socket: net.Socket, env: ResponseEnvelope): void {
+	handleResponse(socket: Socket, env: ResponseEnvelope): void {
 		const pending = this.deps.pendingReplies.get(env.msg_id);
 		if (pending) {
 			if (pending.timer) {
@@ -137,7 +141,7 @@ export class ComsRuntime {
 		ackOk(socket, env.msg_id);
 	}
 
-	handlePing(socket: net.Socket, env: PingEnvelope): void {
+	handlePing(socket: Socket, env: PingEnvelope): void {
 		const ctx = this.deps.getCurrentCtx();
 		const ident = this.deps.getIdentity();
 		const pct = ctx ? Math.round(ctx.getContextUsage()?.percent ?? 0) : 0;
@@ -162,7 +166,7 @@ export class ComsRuntime {
 		}
 	}
 
-	connHandler(socket: net.Socket): void {
+	connHandler(socket: Socket): void {
 		void readOneLineCapped(socket, LINE_CAP_BYTES)
 			.then((line) => {
 				let parsed: unknown;
