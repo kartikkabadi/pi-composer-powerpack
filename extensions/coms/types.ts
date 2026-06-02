@@ -74,6 +74,58 @@ export interface Pong {
 	agent_card: AgentCard;
 }
 
+/** Identity information for the local coms agent. */
+export interface ComsIdentity {
+	session_id: string;
+	name: string;
+	purpose: string;
+	model: string;
+	color: string;
+	cwd: string;
+	project: string;
+}
+
+/** Registry entry for a discovered peer agent. */
+export interface RegistryEntry {
+	session_id: string;
+	name: string;
+	purpose: string;
+	model: string;
+	color: string;
+	pid: number;
+	endpoint: string;
+	cwd: string;
+	started_at: string;
+	explicit: boolean;
+	version: number;
+}
+
+/** Context for an inbound message being processed. */
+export interface InboundContext {
+	msg_id: string;
+	sender_name: string;
+	sender_session: string;
+	sender_endpoint: string;
+	prompt: string;
+	timestamp: string;
+}
+
+/** Pending reply waiting for a response. */
+export interface PendingReply {
+	resolve: (value: any) => void;
+	reject: (reason: any) => void;
+	timer: ReturnType<typeof setTimeout>;
+}
+
+/** CLI flags for the coms extension. */
+export interface CliFlags {
+	name?: string;
+	purpose?: string;
+	project?: string;
+	color?: string;
+	explicit?: boolean;
+}
+
 /** Persisted agent entry in the per-project registry file. */
 export interface RegistryEntry {
 	session_id: string;
