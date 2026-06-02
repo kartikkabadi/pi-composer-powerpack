@@ -65,6 +65,218 @@ export default function (pi: ExtensionAPI) {
 				const borderFn = (s: string) => theme.fg("dim", s);
 
 				container.addChild(new Text("", 0, 0)); // top margin
+				container.addChild(new DynamicBorder(borderFn, `sub-${id}`));
+
+				const statusIcon = state.status === "running" ? "●" : state.status === "done" ? "✓" : "✗";
+				const statusColor = state.status === "running" ? "accent" : state.status === "done" ? "success" : "error";
+				container.addChild(new Text(` ${statusIcon} ${state.task.slice(0, 40)}`, 0, 0, theme.fg(statusColor)));
+
+				if (state.textChunks.length > 0) {
+					const lastLine = state.textChunks[state.textChunks.length - 1].slice(0, 60);
+					container.addChild(new Text(`  ${lastLine}`, 0, 0, theme.fg("dim")));
+				}
+
+				container.addChild(new Text(`  ${state.elapsed}ms | ${state.toolCount} tools | turn ${state.turnCount}`, 0, 0, theme.fg("dim")));
+				container.addChild(new DynamicBorder(borderFn, ``));
+
+				return container;
+			});
+		}
+	}
+
+	// ── Spawn subagent ────────────────────────────────────────────────────────
+
+	function spawnSub(task: string) {
+		const id = nextId++;
+		const sessionFile = makeSessionFile(id);
+
+		const state: SubState = {
+			id,
+			status: "running",
+			task,
+			textChunks: [],
+			toolCount: 0,
+			elapsed: 0,
+			sessionFile,
+			turnCount: 1,
+		};
+		agents.set(id, state);
+
+		const startTime = Date.now();
+		spawnChildAgent(import.meta.url, {
+			task,
+			tools: "read,grep,find,ls,bash",
+			sessionFile,
+		}, {
+			onTextDelta: (_delta, fullText) => {
+				state.textChunks = fullText.split("\n").filter((l) => l.trim());
+				updateWidgets();
+			},
+			onToolStart: () => {
+				state.toolCount++;
+				updateWidgets();
+			},
+			onAgentEnd: () => {
+				state.status = "done";
+				state.elapsed = Date.now() - startTime;
+				updateWidgets();
+			},
+		}).then((result) => {
+			state.status = result.exitCode === 0 ? "done" : "error";
+			state.elapsed = result.elapsed;
+			updateWidgets();
+		}).catch(() => {
+			state.status = "error";
+			state.elapsed = Date.now() - startTime;
+			updateWidgets();
+		});
+
+		updateWidgets();
+		return id;
+	}
+
+	// ── Commands ──────────────────────────────────────────────────────────────
+
+	pi.registerCommand("sub", {
+		description: "Spawn a background subagent",
+		handler: async (args, ctx) => {
+			widgetCtx = ctx;
+			const task = args.join(" ");
+			if (!task) {
+				ctx.ui.notify("Usage: /sub <task>", "warning");
+				return;
+			}
+			const id = spawnSub(task);
+			ctx.ui.notify(`Subagent #${id} spawned`, "info");
+		},
+	});
+
+	pi.registerCommand("subcont", {
+		description: "Continue a subagent conversation",
+		handler: async (args, ctx) => {
+			const id = parseInt(args[0], 10);
+			if (isNaN(id)) {
+				ctx.ui.notify("Usage: /subcont <id> <message>", "warning");
+				return;
+			}
+			const state = agents.get(id);
+			if (!state) {
+				ctx.ui.notify(`Subagent #${id} not found`, "error");
+				return;
+			}
+			const message = args.slice(1).join(" ");
+			if (!message) {
+				ctx.ui.notify("Usage: /subcont <id> <message>", "warning");
+				return;
+			}
+			state.turnCount++;
+			state.status = "running";
+			state.textChunks = [];
+			state.toolCount = 0;
+			updateWidgets();
+			ctx.ui.notify(`Continuing subagent #${id}`, "info");
+		},
+	});
+
+	pi.registerCommand("subrm", {
+		description: "Remove a subagent widget",
+		handler: async (args, ctx) => {
+			const id = parseInt(args[0], 10);
+			if (isNaN(id)) {
+				ctx.ui.notify("Usage: /subrm <id>", "warning");
+				return;
+			}
+			const state = agents.get(id);
+			if (!state) {
+				ctx.ui.notify(`Subagent #${id} not found`, "error");
+				return;
+			}
+			if (state.proc) {
+				state.proc.kill();
+			}
+			agents.delete(id);
+			ctx.ui.notify(`Subagent #${id} removed`, "info");
+		},
+	});
+
+	pi.registerCommand("subclear", {
+		description: "Clear all subagent widgets",
+		handler: async (_args, ctx) => {
+			for (const [id, state] of agents) {
+				if (state.proc) {
+					state.proc.kill();
+				}
+			}
+			agents.clear();
+			ctx.ui.notify("All subagents cleared", "info");
+		},
+	});
+
+	pi.registerCommand("sublist", {
+		description: "List all subagents",
+		handler: async (_args, ctx) => {
+			if (agents.size === 0) {
+				ctx.ui.notify("No subagents running", "info");
+				return;
+			}
+			const lines = Array.from(agents.values()).map((s) =>
+				`#${s.id} [${s.status}] ${s.task.slice(0, 40)} (${s.elapsed}ms, ${s.toolCount} tools)`
+			);
+			ctx.ui.notify(lines.join("\n"), "info");
+		},
+	});
+
+	pi.registerCommand("version", {
+		description: "Show powerpack version",
+		handler: async (_args, ctx) => {
+			try {
+				const { readFileSync } = await import("node:fs");
+				const { join } = await import("node:path");
+				const pkgPath = join(piAgentHome(), "package.json");
+				const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+				ctx.ui.notify(`pi-composer-powerpack v${pkg.version}`, "info");
+			} catch {
+				ctx.ui.notify("pi-composer-powerpack (version unknown)", "info");
+			}
+		},
+	});
+
+	pi.on("session_start", (_event, ctx) => {
+		widgetCtx = ctx;
+		applyExtensionDefaults(import.meta.url, ctx);
+	});
+}
+
+/**
+ * Subagent Widget extension.
+ * Provides /sub, /subclear, /subrm, and /subcont commands for spawning
+ * background Pi subagents with persistent sessions and live status widgets.
+ */
+export default function (pi: ExtensionAPI) {
+	const agents: Map<number, SubState> = new Map();
+	let nextId = 1;
+	let widgetCtx: ExtensionContext | undefined;
+
+	// ── Session file helpers ──────────────────────────────────────────────────
+
+	function makeSessionFile(id: number): string {
+		const dir = join(piAgentHome(), "sessions", "subagents");
+		mkdirSync(dir, { recursive: true });
+		return join(dir, `subagent-${id}-${Date.now()}.jsonl`);
+	}
+
+	// ── Widget rendering ──────────────────────────────────────────────────────
+
+	function updateWidgets() {
+		if (!widgetCtx) return;
+
+		for (const [id, state] of Array.from(agents.entries())) {
+			const key = `sub-${id}`;
+			widgetCtx.ui.setWidget(key, (_tui, theme) => {
+				const container = new Container();
+				const borderFn = (s: string) => theme.fg("dim", s);
+
+				container.addChild(new Text("", 0, 0)); // top margin
 				container.addChild(new DynamicBorder(borderFn));
 				const content = new Text("", 1, 0);
 				container.addChild(content);
