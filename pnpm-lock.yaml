@@ -15,7 +15,7 @@ importers:
     dependencies:
       pi-cursor-sdk:
         specifier: 0.1.18
-        version: 0.1.18(@earendil-works/pi-ai@0.75.5(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3))(@earendil-works/pi-coding-agent@0.75.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3))(@earendil-works/pi-tui@0.75.4)(typebox@1.1.38)(zod@4.4.3)
+        version: 0.1.18(@earendil-works/pi-ai@0.75.5(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3))(@earendil-works/pi-coding-agent@0.75.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3))(@earendil-works/pi-tui@0.75.4)(typebox@1.1.39)(zod@4.4.3)
       yaml:
         specifier: 2.9.0
         version: 2.9.0
@@ -36,8 +36,8 @@ importers:
         specifier: ^10.4.0
         version: 10.4.0(jiti@2.7.0)
       typebox:
-        specifier: 1.1.38
-        version: 1.1.38
+        specifier: 1.1.39
+        version: 1.1.39
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -318,35 +318,30 @@ packages:
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@mariozechner/clipboard-linux-arm64-musl@0.3.6':
     resolution: {integrity: sha512-JlVjxxw0GbGC0djXYWRIqyteO3J1KZ/QG3udlEFaOD5TLOM1FnmXXAPDQBqr+aBVr720ef9K00dirYnJ0LDCtw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@mariozechner/clipboard-linux-riscv64-gnu@0.3.6':
     resolution: {integrity: sha512-4t8BUi5zZ+L77otFQVnVSlaTyAX4TVk9EqQm4syMrEQp96trFEHEwwNHcNEBGzYv5+K7mxay50TthYkz47OWzQ==}
     engines: {node: '>= 10'}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@mariozechner/clipboard-linux-x64-gnu@0.3.6':
     resolution: {integrity: sha512-trtPwcNLW37irwQCJLtCxLw757jjJZk3TSnY/MU9bhtWtA3K9b/eLW0e4RGhUXDoFRds9opNWWaUDuFLa8dm0w==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@mariozechner/clipboard-linux-x64-musl@0.3.6':
     resolution: {integrity: sha512-WfnzIvOCCWQiN0MmltCEo6cLceUDbYe+I7xyFZjaps5A+2Op/M2CY7Rey+C4ucQhrvmpoHmTSFgY9ODWk7snoA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@mariozechner/clipboard-win32-arm64-msvc@0.3.6':
     resolution: {integrity: sha512-+8+1aHYsBPUjmW3otmWlg+Hijt0iJvoBBs5e0mxFeUd4gDaKMB8Bn6x7c6KVtscg7E5j5NFXnwQqNSIAO4p8zQ==}
@@ -1418,6 +1413,9 @@ packages:
 
   typebox@1.1.38:
     resolution: {integrity: sha512-pZ0aQPmMmXoUvSbeuWf/Hzsc+avNw/Zd6VeE8CFgkVGWyuHPJvqeJJDeJqLve+K70LvjYIoleGcoJHPT17cWoA==}
+
+  typebox@1.1.39:
+    resolution: {integrity: sha512-vj0afVtOfLQvv0GR0VxVagYxsXN64btL7Z9XoaG0ZggH3mruMMkOO6hXdgMsjCY3shZgEvooAWVeznQVs5c43w==}
 
   typescript-eslint@8.59.4:
     resolution: {integrity: sha512-Rw6+44QNFaXtgHSjPy+Kw8hrJniMYzR85E9yLmOLcfZ91/rz+JXQbDTCmc6ccxMPY6K6PgAq26f0JCBfR7LIPQ==}
@@ -2860,14 +2858,14 @@ snapshots:
 
   path-to-regexp@8.4.2: {}
 
-  pi-cursor-sdk@0.1.18(@earendil-works/pi-ai@0.75.5(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3))(@earendil-works/pi-coding-agent@0.75.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3))(@earendil-works/pi-tui@0.75.4)(typebox@1.1.38)(zod@4.4.3):
+  pi-cursor-sdk@0.1.18(@earendil-works/pi-ai@0.75.5(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3))(@earendil-works/pi-coding-agent@0.75.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3))(@earendil-works/pi-tui@0.75.4)(typebox@1.1.39)(zod@4.4.3):
     dependencies:
       '@cursor/sdk': 1.0.13
       '@earendil-works/pi-ai': 0.75.5(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent': 0.75.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui': 0.75.4
       '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
-      typebox: 1.1.38
+      typebox: 1.1.39
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - supports-color
@@ -3123,6 +3121,8 @@ snapshots:
       mime-types: 3.0.2
 
   typebox@1.1.38: {}
+
+  typebox@1.1.39: {}
 
   typescript-eslint@8.59.4(eslint@10.4.0(jiti@2.7.0))(typescript@5.9.3):
     dependencies:
