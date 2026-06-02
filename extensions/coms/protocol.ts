@@ -7,7 +7,13 @@ import { COMS_DIR, FALLBACK_PALETTE, type CliFlags, type Envelope, type PingEnve
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-/** Generate a 26-character Crockford Base32 ULID using current time + random bytes. */
+/**
+ * Generate a 26-character Crockford Base32 ULID.
+ *
+ * Uses current time + random bytes for uniqueness.
+ *
+ * @returns A 26-character ULID string
+ */
 export function ulid(): string {
 	const time = Date.now();
 	const rand = randomBytes(10);
@@ -17,6 +23,161 @@ export function ulid(): string {
 		timeStr = CROCKFORD[t % 32] + timeStr;
 		t = Math.floor(t / 32);
 	}
+	let randStr = "";
+	let bits = 0;
+	let value = 0;
+	for (const byte of rand) {
+		value = (value << 8) | byte;
+		bits += 8;
+		while (bits >= 5) {
+			bits -= 5;
+			randStr += CROCKFORD[(value >> bits) & 31];
+		}
+	}
+	return (timeStr + randStr).slice(0, 26);
+}
+
+/**
+ * Wrap a string in ANSI 24-bit foreground color escape codes.
+ *
+ * @param hex - The #RRGGBB hex color value
+ * @param s - The string to wrap
+ * @returns The string wrapped in ANSI color codes
+ */
+export function hexFg(hex: string, s: string): string {
+	const r = parseInt(hex.slice(1, 3), 16);
+	const g = parseInt(hex.slice(3, 5), 16);
+	const b = parseInt(hex.slice(5, 7), 16);
+	return `\x1b[38;2;${r};${g};${b}m${s}\x1b[39m`;
+}
+
+/**
+ * Validate a hex color string.
+ *
+ * @param hex - The hex color string to validate
+ * @returns true if valid 7-character #RRGGBB hex color
+ */
+export function isValidHex(hex: string): boolean {
+	return /^#[0-9a-fA-F]{6}$/.test(hex);
+}
+
+/**
+ * Derive a deterministic fallback color from a session ID.
+ *
+ * Uses SHA-256 hash of the session ID to select a color from the palette.
+ *
+ * @param sessionId - The session ID to derive color from
+ * @returns A hex color string from the fallback palette
+ */
+export function fallbackColor(sessionId: string): string {
+	const h = createHash("sha256").update(sessionId).digest("hex").slice(0, 8);
+	return FALLBACK_PALETTE[Number(BigInt("0x" + h)) % FALLBACK_PALETTE.length];
+}
+
+/**
+ * Parse YAML frontmatter from a markdown string.
+ *
+ * @param raw - Raw markdown string with YAML frontmatter
+ * @returns Parsed frontmatter with name, description, color, and body
+ */
+export function parseFrontmatter(raw: string): { name?: string; description?: string; color?: string; body: string } {
+	const { fields, body } = parseMarkdownFrontmatter(raw);
+	return {
+		name: fields.name,
+		description: fields.description,
+		color: fields.color,
+		body,
+	};
+}
+
+/**
+ * Build a platform-appropriate endpoint path.
+ *
+ * Returns a unix socket path on POSIX or named pipe on Windows.
+ *
+ * @param sessionId - The session ID for the endpoint
+ * @returns The endpoint path
+ */
+export function makeEndpoint(sessionId: string): string {
+	if (process.platform === "win32") {
+		return `\\\\.\\pipe\\pi-coms-${sessionId}`;
+	}
+	return join(COMS_DIR, "sockets", `${sessionId}.sock`);
+}
+
+/**
+ * Return the current timestamp as an ISO-8601 string.
+ *
+ * @returns ISO-8601 formatted timestamp
+ */
+export function nowIso(): string {
+	return new Date().toISOString();
+}
+
+/**
+ * Create a ping envelope for peer discovery.
+ *
+ * @param sessionId - The sender's session ID
+ * @param endpoint - The sender's endpoint
+ * @returns A ping envelope
+ */
+export function makePingEnvelope(sessionId: string, endpoint: string): PingEnvelope {
+	return {
+		type: "ping",
+		msg_id: ulid(),
+		sender_session: sessionId,
+		sender_endpoint: endpoint,
+		hops: 0,
+		timestamp: nowIso(),
+	};
+}
+
+/**
+ * Abbreviate a model name by stripping common prefixes.
+ *
+ * @param model - The model name to abbreviate
+ * @returns Abbreviated model name
+ */
+export function abbreviateModel(model: string): string {
+	return model.replace(/^claude-/, "").slice(0, 14);
+}
+
+/**
+ * Validate an envelope object.
+ *
+ * @param obj - The object to validate
+ * @returns true if the object is a valid envelope
+ */
+export function isValidEnvelope(obj: unknown): obj is Envelope {
+	if (!obj || typeof obj !== "object") return false;
+	const e = obj as Record<string, unknown>;
+	return (
+		typeof e.type === "string" &&
+		typeof e.msg_id === "string" &&
+		typeof e.sender_session === "string" &&
+		typeof e.sender_endpoint === "string" &&
+		typeof e.hops === "number" &&
+		typeof e.timestamp === "string"
+	);
+}
+
+/**
+ * Find the system prompt path from command-line arguments.
+ *
+ * @param argv - The process arguments to search
+ * @returns Path to the system prompt file, or null if not found
+ */
+export function findSystemPromptPath(argv: string[]): string | null {
+	for (let i = 0; i < argv.length - 1; i++) {
+		if (argv[i] === "--system-prompt" || argv[i] === "--append-system-prompt") {
+			const path = argv[i + 1];
+			if (path && path.endsWith(".md") && existsSync(path)) {
+				return path;
+			}
+		}
+	}
+	return null;
+}
 	let randStr = "";
 	let bits = 0;
 	let value = 0;
