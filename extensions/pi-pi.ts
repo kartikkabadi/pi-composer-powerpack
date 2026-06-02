@@ -75,6 +75,13 @@ const EXPERT_COLORS: Record<string, { bg: string; br: string }> = {
 
 // ── Extension ────────────────────────────────────
 
+/**
+ * Pi Pi — Meta-agent extension that builds Pi agents.
+ * A team of domain-specific research experts (extensions, themes, skills,
+ * settings, TUI) operate in parallel to gather documentation and patterns.
+ * The primary agent synthesizes findings and writes the actual files.
+ * Supports /experts and /experts-grid commands.
+ */
 export default function (pi: ExtensionAPI) {
 		const experts: Map<string, ExpertState> = new Map();
 		let gridCols = 3;

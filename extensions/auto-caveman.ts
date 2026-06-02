@@ -12,6 +12,12 @@ const CAVEMAN_SKILL_PATH =
 const FALLBACK_INSTRUCTIONS =
 	"Respond terse like smart caveman. Drop articles, filler, pleasantries. Fragments OK. Abbreviate common terms. Technical terms stay exact.";
 
+/**
+ * Auto-Caveman extension.
+ * Automatically injects caveman-mode instructions into the agent's system
+ * prompt on session start. Reads instructions from a SKILL.md file or falls
+ * back to a built-in terse-response directive. Supports /caveman toggle.
+ */
 export default function autoCaveman(pi: ExtensionAPI) {
 	let cavemanMode = true;
 

@@ -61,6 +61,12 @@ interface StepState {
 
 // ── Extension ────────────────────────────────────
 
+/**
+ * Agent Chain extension.
+ * Runs opinionated, repeatable agent workflows defined in agent-chain.yaml.
+ * The primary agent acts as a pipeline dispatcher, passing each step's output
+ * as input to the next. Supports /chain, /chain-list, /chain-mode, and /direct commands.
+ */
 export default function (pi: ExtensionAPI) {
 	let allAgents: Map<string, AgentDef> = new Map();
 	let chains: ChainDef[] = [];

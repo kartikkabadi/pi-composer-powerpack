@@ -156,6 +156,13 @@ class TillDoneListComponent {
 
 // ── Extension entry point ──────────────────────────────────────────────
 
+/**
+ * TillDone extension — Work Till It's Done.
+ * A task-driven discipline extension. The agent must define tasks (via
+ * `tilldone add`) before using other tools. Tasks follow a three-state
+ * lifecycle: idle → inprogress → done. Provides footer, widget, and
+ * /tilldone overlay for task management.
+ */
 export default function (pi: ExtensionAPI) {
 	let tasks: Task[] = [];
 	let nextId = 1;

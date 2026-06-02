@@ -27,6 +27,12 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+/**
+ * Superset Notification Extension.
+ * Emits Claude-Code-compatible lifecycle hooks to Superset's notify.sh
+ * so the host UI gets a working indicator and completion chime for Pi sessions.
+ * Activates only inside a Superset terminal; complete no-op otherwise.
+ */
 export default function (pi: ExtensionAPI) {
 	// Only activate inside a Superset terminal. Both v2 (host-service) and
 	// v1 (electron localhost) shells set at least one of these.
