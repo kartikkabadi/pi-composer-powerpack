@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.16] - 2026-06-02
+
+### Added
+
+- `coms_health` tool for monitoring coms system health status
+- `/version` command to display powerpack version
+- Agent definition caching for improved performance
+- Comprehensive JSDoc documentation for all exported functions
+- Input validation for agent definition loading
+- Error handling for path resolution functions
+- Troubleshooting guide with environment variables reference
+
+### Changed
+
+- Improved code quality with better error handling
+- Enhanced test coverage for powerpackPaths, themeMap, and frontmatter
+- Updated CHANGELOG with comprehensive release notes
+
+### Fixed
+
+- Fixed duplicate function declarations in workflowKit.ts
+- Fixed duplicate applyExtensionDefaults in themeMap.ts
+- Fixed input validation in agentDefinitions.ts
+
 ## [0.2.15] - 2026-05-25
 
 ### Added
