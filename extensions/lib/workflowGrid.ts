@@ -1,5 +1,22 @@
+/** A single card in the workflow grid, represented as an array of lines */
 export type WorkflowGridCard = string[];
 
+/**
+ * Layout items in a grid with specified columns and width.
+ *
+ * Creates a responsive grid layout for displaying agent cards,
+ * status cards, or other workflow items.
+ *
+ * @param options - Layout configuration
+ * @param options.items - Items to display in the grid
+ * @param options.cols - Number of columns
+ * @param options.width - Total available width
+ * @param options.gap - Gap between columns (default: 1)
+ * @param options.theme - Theme object for styling
+ * @param options.renderCard - Function to render an item as a card
+ * @param options.emptyLine - Function to render an empty line
+ * @returns Array of formatted strings for the grid
+ */
 export function layoutWorkflowGrid<T>(options: {
 	items: T[];
 	cols: number;
@@ -35,6 +52,20 @@ export function layoutWorkflowGrid<T>(options: {
 	return lines;
 }
 
+/**
+ * Install a workflow grid widget in the extension UI.
+ *
+ * Creates a widget that renders a dynamic grid of items, updating
+ * whenever the items or columns change.
+ *
+ * @param options - Widget configuration
+ * @param options.widgetKey - Unique key for the widget
+ * @param options.getUi - Function to get the UI context
+ * @param options.getItems - Function to get current items
+ * @param options.getCols - Function to get current column count
+ * @param options.renderCard - Function to render an item as a card
+ * @param options.emptyLine - Function to render an empty line
+ */
 export function installRawWorkflowGrid<T>(options: {
 	widgetKey: string;
 	getUi: () => { setWidget: (key: string, factory: (tui: unknown, theme: unknown) => unknown) => void } | null;
