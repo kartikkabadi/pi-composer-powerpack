@@ -19,6 +19,17 @@ export type ToolCallEvaluation = {
 	shouldAsk: boolean;
 };
 
+const regexCache = new Map<string, RegExp>();
+
+function getCompiledRegex(pattern: string): RegExp {
+	let regex = regexCache.get(pattern);
+	if (!regex) {
+		regex = new RegExp(pattern, "i");
+		regexCache.set(pattern, regex);
+	}
+	return regex;
+}
+
 function resolvePath(p: string, cwd: string): string {
 	let target = p;
 	if (target.startsWith("~")) {
@@ -111,7 +122,7 @@ export function evaluateToolCall(
 		const command = record.command;
 
 		for (const rule of rules.bashToolPatterns) {
-			const regex = new RegExp(rule.pattern);
+			const regex = getCompiledRegex(rule.pattern);
 			if (regex.test(command)) {
 				violationReason = rule.reason;
 				shouldAsk = !!rule.ask;
