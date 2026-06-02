@@ -2,7 +2,6 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { resolvePiSpawn } from "../powerpackPaths.ts";
 import { buildChildPiArgv, type ChildAgentOptions } from "./childAgentSession.ts";
 
-/** A parsed JSON event from the Pi subprocess */
 export type PiJsonEvent = {
 	type: string;
 	assistantMessageEvent?: { type?: string; delta?: string };
@@ -10,7 +9,6 @@ export type PiJsonEvent = {
 	messages?: Array<{ role?: string; usage?: { input?: number } }>;
 };
 
-/** Handlers for Pi subprocess lifecycle events */
 export type PiJsonHandlers = {
 	onTextDelta?: (delta: string, fullText: string, lastLine: string) => void;
 	onToolStart?: () => void;
@@ -21,19 +19,12 @@ export type PiJsonHandlers = {
 	onSpawn?: (proc: ChildProcess) => void;
 };
 
-/** Result from running a Pi subprocess */
 export type PiJsonRunResult = {
 	output: string;
 	exitCode: number;
 	elapsed: number;
 };
 
-/**
- * Parse a single line of JSON output from the Pi subprocess.
- *
- * @param line - Raw line from stdout
- * @returns Parsed PiJsonEvent or null if invalid/empty
- */
 export function parsePiJsonLine(line: string): PiJsonEvent | null {
 	const trimmed = line.trim();
 	if (!trimmed) return null;
@@ -42,113 +33,6 @@ export function parsePiJsonLine(line: string): PiJsonEvent | null {
 	} catch {
 		return null;
 	}
-}
-
-/**
- * Process a Pi JSON event and invoke appropriate handlers.
- *
- * Handles message_update (text deltas), tool_execution_start,
- * message_end, and agent_end events.
- *
- * @param event - The parsed Pi JSON event
- * @param textChunks - Array to accumulate text chunks
- * @param handlers - Event handlers to invoke
- */
-export function processPiJsonEvent(
-	event: PiJsonEvent,
-	textChunks: string[],
-	handlers: PiJsonHandlers,
-): void {
-	if (event.type === "message_update") {
-		const delta = event.assistantMessageEvent;
-		if (delta?.type === "text_delta") {
-			textChunks.push(delta.delta || "");
-			const full = textChunks.join("");
-			const last = full.split("\n").filter((l) => l.trim()).pop() || "";
-			handlers.onTextDelta?.(delta.delta || "", full, last);
-		}
-	} else if (event.type === "tool_execution_start") {
-		handlers.onToolStart?.();
-	} else if (event.type === "message_end") {
-		handlers.onMessageEnd?.(event.message?.usage);
-	} else if (event.type === "agent_end") {
-		handlers.onAgentEnd?.(event.messages);
-	}
-}
-
-/**
- * Spawn and run a Pi subprocess with JSON output mode.
- *
- * Creates a child process with the specified options, parses JSON
- * events from stdout, and invokes handlers for lifecycle events.
- *
- * @param callerUrl - The import.meta.url of the calling module
- * @param opts - Options for the child agent
- * @param handlers - Optional lifecycle event handlers
- * @returns Promise resolving to output, exit code, and elapsed time
- */
-export function spawnPiJsonProcess(
-	callerUrl: string,
-	opts: ChildAgentOptions,
-	handlers: PiJsonHandlers = {},
-): Promise<PiJsonRunResult> {
-	const args = buildChildPiArgv(callerUrl, opts);
-	const textChunks: string[] = [];
-	const startTime = Date.now();
-
-	return new Promise((resolve) => {
-		let proc: ChildProcess;
-		const { command, prefixArgs } = resolvePiSpawn();
-		try {
-		proc = spawn(command, [...prefixArgs, ...args], {
-			stdio: ["ignore", "pipe", "pipe"],
-			env: { ...process.env },
-		});
-		handlers.onSpawn?.(proc);
-		} catch (error) {
-			resolve({
-				output: `Error spawning agent: ${error instanceof Error ? error.message : String(error)}`,
-				exitCode: 1,
-				elapsed: 0,
-			});
-			return;
-		}
-
-		let output = "";
-		let exitCode = 0;
-
-		proc.stdout?.on("data", (data: Buffer) => {
-			const lines = data.toString().split("\n");
-			for (const line of lines) {
-				const event = parsePiJsonLine(line);
-				if (event) {
-					processPiJsonEvent(event, textChunks, handlers);
-				}
-			}
-		});
-
-		proc.stderr?.on("data", (data: Buffer) => {
-			output += data.toString();
-		});
-
-		proc.on("close", (code) => {
-			exitCode = code ?? 1;
-			const elapsed = Date.now() - startTime;
-			handlers.onAgentEnd?.();
-			resolve({ output, exitCode, elapsed });
-		});
-
-		proc.on("error", (error) => {
-			exitCode = 1;
-			const elapsed = Date.now() - startTime;
-			resolve({
-				output: `Process error: ${error.message}`,
-				exitCode,
-				elapsed,
-			});
-		});
-	});
-}
 }
 
 export function processPiJsonEvent(
