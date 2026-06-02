@@ -19,7 +19,14 @@ import { fileURLToPath } from "node:url";
  * ```
  */
 export function powerpackRoot(fileUrl: string): string {
-	return dirname(dirname(fileURLToPath(fileUrl)));
+	if (!fileUrl || typeof fileUrl !== "string") {
+		return process.cwd();
+	}
+	try {
+		return dirname(dirname(fileURLToPath(fileUrl)));
+	} catch {
+		return process.cwd();
+	}
 }
 
 /**
