@@ -55,27 +55,9 @@ export function applyExtensionTheme(_fileUrl: string, _ctx: ExtensionContext): b
 	return false;
 }
 
-/**
- * Apply extension defaults for a given extension.
- *
- * Sets the terminal title based on the extension name and applies any
- * default configuration. This function is called during session_start
- * to initialize extension-specific settings.
- *
- * @param fileUrl - The import.meta.url of the calling extension
- * @param ctx - The extension context for UI updates
- * @returns Always returns true to indicate defaults were applied
- */
-export function applyExtensionDefaults(fileUrl: string, ctx: ExtensionContext): boolean {
-	const name = basename(fileUrl).replace(/\.[^.]+$/, "");
-	if (name) {
-		ctx.ui.setTitle(`pi-${name}`);
-	}
-	return true;
-}
+// ── Title ──────────────────────────────────────────────────────────────────
 
 /**
- * Read process.argv to find the first -e / --extension flag value.
  *
  * When Pi is launched as:
  *   pi -e extensions/subagent-widget.ts -e extensions/pure-focus.ts
