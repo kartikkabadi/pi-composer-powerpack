@@ -19,6 +19,7 @@
  *   /chain-mode        — dispatcher mode (run_chain only)
  *   /direct            — full tools for quick one-off work
  *   /chain-run <task>  — hint to run the active chain on a task
+ *   /chain-cache-clear — clear agent definition cache
  *
  * Usage: /chain-mode after installing the package with pi install.
  */
@@ -36,6 +37,7 @@ import {
 	loadChainDefinitions,
 	mergeChains,
 	displayName,
+	clearAgentCache,
 	type AgentDef,
 	type ChainDef,
 } from "./lib/agentDefinitions.ts";
