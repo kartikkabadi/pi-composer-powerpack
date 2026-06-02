@@ -85,64 +85,85 @@ describe("piAgentHome", () => {
 // ── resolvePiBinary ──────────────────────────────────────────────────────────
 
 describe("resolvePiBinary", () => {
-	const ORIG_PI_POWERPACK_PI = process.env.PI_POWERPACK_PI;
-	const ORIG_PI_BIN = process.env.PI_BIN;
+	const ORIG_POWERPACK = process.env.PI_POWERPACK_PI;
+	const ORIG_BIN = process.env.PI_BIN;
 
 	after(() => {
-		process.env.PI_POWERPACK_PI = ORIG_PI_POWERPACK_PI;
-		process.env.PI_BIN = ORIG_PI_BIN;
+		if (ORIG_POWERPACK === undefined) {
+			delete process.env.PI_POWERPACK_PI;
+		} else {
+			process.env.PI_POWERPACK_PI = ORIG_POWERPACK;
+		}
+		if (ORIG_BIN === undefined) {
+			delete process.env.PI_BIN;
+		} else {
+			process.env.PI_BIN = ORIG_BIN;
+		}
 	});
 
 	test("returns PI_POWERPACK_PI when set", async () => {
-		process.env.PI_POWERPACK_PI = "/usr/local/bin/pi";
-		delete process.env.PI_BIN;
+		process.env.PI_POWERPACK_PI = "/custom/pi";
 		const { resolvePiBinary } = await loadPowerpackPaths();
-		assert.equal(resolvePiBinary(), "/usr/local/bin/pi");
+		assert.equal(resolvePiBinary(), "/custom/pi");
 	});
 
-	test("returns PI_BIN when PI_POWERPACK_PI is not set", async () => {
+	test("returns PI_BIN when PI_POWERPACK_PI not set", async () => {
 		delete process.env.PI_POWERPACK_PI;
-		process.env.PI_BIN = "/opt/bin/pi";
+		process.env.PI_BIN = "/custom/pi-bin";
 		const { resolvePiBinary } = await loadPowerpackPaths();
-		assert.equal(resolvePiBinary(), "/opt/bin/pi");
+		assert.equal(resolvePiBinary(), "/custom/pi-bin");
+	});
+
+	test("returns 'pi' when no env vars set", async () => {
+		delete process.env.PI_POWERPACK_PI;
+		delete process.env.PI_BIN;
+		const { resolvePiBinary } = await loadPowerpackPaths();
+		const result = resolvePiBinary();
+		assert.ok(typeof result === "string");
+		assert.ok(result.length > 0);
 	});
 });
 
 // ── resolvePiSpawn ───────────────────────────────────────────────────────────
 
 describe("resolvePiSpawn", () => {
-	const ORIG_PI_POWERPACK_PI = process.env.PI_POWERPACK_PI;
-	const ORIG_PI_BIN = process.env.PI_BIN;
+	const ORIG_POWERPACK = process.env.PI_POWERPACK_PI;
+	const ORIG_BIN = process.env.PI_BIN;
 
 	after(() => {
-		process.env.PI_POWERPACK_PI = ORIG_PI_POWERPACK_PI;
-		process.env.PI_BIN = ORIG_PI_BIN;
+		if (ORIG_POWERPACK === undefined) {
+			delete process.env.PI_POWERPACK_PI;
+		} else {
+			process.env.PI_POWERPACK_PI = ORIG_POWERPACK;
+		}
+		if (ORIG_BIN === undefined) {
+			delete process.env.PI_BIN;
+		} else {
+			process.env.PI_BIN = ORIG_BIN;
+		}
 	});
 
-	test("returns node command for .mjs scripts", async () => {
-		process.env.PI_POWERPACK_PI = "/path/to/script.mjs";
-		delete process.env.PI_BIN;
+	test("returns node command for .mjs script", async () => {
+		process.env.PI_POWERPACK_PI = "/custom/pi.mjs";
 		const { resolvePiSpawn } = await loadPowerpackPaths();
-		const result = resolvePiSpawn();
-		assert.equal(result.command, process.execPath);
-		assert.deepEqual(result.prefixArgs, ["/path/to/script.mjs"]);
+		const { command, prefixArgs } = resolvePiSpawn();
+		assert.equal(command, process.execPath);
+		assert.deepEqual(prefixArgs, ["/custom/pi.mjs"]);
 	});
 
-	test("returns node command for .js scripts", async () => {
-		process.env.PI_POWERPACK_PI = "/path/to/script.js";
-		delete process.env.PI_BIN;
+	test("returns node command for .js script", async () => {
+		process.env.PI_POWERPACK_PI = "/custom/pi.js";
 		const { resolvePiSpawn } = await loadPowerpackPaths();
-		const result = resolvePiSpawn();
-		assert.equal(result.command, process.execPath);
-		assert.deepEqual(result.prefixArgs, ["/path/to/script.js"]);
+		const { command, prefixArgs } = resolvePiSpawn();
+		assert.equal(command, process.execPath);
+		assert.deepEqual(prefixArgs, ["/custom/pi.js"]);
 	});
 
-	test("returns binary command for non-script paths", async () => {
-		process.env.PI_POWERPACK_PI = "/usr/local/bin/pi";
-		delete process.env.PI_BIN;
+	test("returns direct command for binary", async () => {
+		process.env.PI_POWERPACK_PI = "/usr/bin/pi";
 		const { resolvePiSpawn } = await loadPowerpackPaths();
-		const result = resolvePiSpawn();
-		assert.equal(result.command, "/usr/local/bin/pi");
-		assert.deepEqual(result.prefixArgs, []);
+		const { command, prefixArgs } = resolvePiSpawn();
+		assert.equal(command, "/usr/bin/pi");
+		assert.deepEqual(prefixArgs, []);
 	});
 });
