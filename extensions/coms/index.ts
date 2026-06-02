@@ -25,7 +25,13 @@ import {
 	cleanShutdown,
 } from "./session.ts";
 
-/** Pi extension entry point: registers coms flags, tools, session lifecycle, and the /coms command. */
+/**
+ * Pi extension entry point for coms.
+ *
+ * Registers coms flags, tools, session lifecycle, and the /coms command.
+ *
+ * @param pi - The extension API
+ */
 export default function (pi: ExtensionAPI) {
 	pi.registerFlag("name", { description: "Override agent name", type: "string", default: undefined });
 	pi.registerFlag("purpose", { description: "Override agent purpose", type: "string", default: undefined });
@@ -66,6 +72,31 @@ export default function (pi: ExtensionAPI) {
 		pingPeer: (endpoint: string) => comsRuntime.pingPeer(endpoint),
 	});
 
+	pi.on("session_start", (_event, ctx) => {
+		applyExtensionDefaults(import.meta.url, ctx);
+		bootSession(pi, state, ctx, comsRuntime, renderPool, inboundQueue).catch(() => {});
+	});
+
+	pi.on("agent_end", () => {
+		handleAgentEnd(state, inboundQueue, pendingReplies);
+	});
+
+	pi.on("session_shutdown", () => {
+		cleanShutdown(pi, state, inboundQueue, pendingReplies).catch(() => {});
+	});
+
+	pi.registerCommand("coms", {
+		description: "Show coms peer pool status",
+		handler: async (_args, ctx) => {
+			const identity = state.identity;
+			if (!identity) {
+				ctx.ui.notify("coms not initialized", "error");
+				return;
+			}
+			ctx.ui.notify(`coms: ${identity.name} (${identity.session_id})`, "info");
+		},
+	});
+}
 	pi.on("session_start", async (_event, ctx) => {
 		applyExtensionDefaults(import.meta.url, ctx);
 		await bootSession(pi, state, ctx, comsRuntime, renderPool, inboundQueue);
