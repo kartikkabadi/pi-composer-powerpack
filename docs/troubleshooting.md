@@ -58,6 +58,21 @@ Requires Pi **≥ 0.75.3**. Auth is post-install: run `/login` in Pi before your
 - Peers use sockets under `PI_COMS_DIR` (default `~/.pi/coms`).
 - Ensure multiple Pi processes run on the same machine and `/coms` has been used to refresh the pool.
 
+### Coms health check
+
+Use the `coms_health` tool to check the health status of the coms system:
+
+```typescript
+// Returns: { healthy, identity, projects, total_agents, pending_replies, timestamp }
+const health = await coms_health({});
+```
+
+### Coms peer discovery issues
+
+- Check that agents are running with `--project` flag set to the same project name.
+- Use `coms_list` with `project="*"` to scan all projects.
+- Use `include_explicit=true` to reveal agents launched with `--explicit`.
+
 ## Damage control
 
 - Bundled rules ship in `config/damage-control-rules.yaml`.
@@ -117,3 +132,25 @@ Smoke (requires Cursor auth):
 ```bash
 pi --model cursor/composer-2.5 --cursor-fast --no-session --no-tools -p "Reply exactly OK"
 ```
+
+## Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PI_SUBAGENT_MODEL` | `cursor/composer-2.5` | Model for child agents |
+| `PI_SUBAGENT_CURSOR_FAST` | `1` | Enable Cursor fast mode for child agents |
+| `PI_CURSOR_SDK_EXTENSION` | (bundled) | Path to Cursor SDK extension |
+| `PI_DAMAGE_CONTROL_EXTENSION` | (bundled) | Path to damage control extension |
+| `PI_SUBAGENT_DAMAGE_CONTROL` | `1` | Load damage control in child agents |
+| `PI_COMS_DIR` | `~/.pi/coms` | Coms runtime data directory |
+| `PI_COMS_MAX_HOPS` | `5` | Maximum hop count for messages |
+| `PI_COMS_TIMEOUT_MS` | `1800000` | Response timeout in ms |
+| `PI_COMS_ACK_TIMEOUT_MS` | `15000` | Ack timeout in ms |
+| `PI_COMS_PING_INTERVAL_MS` | `10000` | Peer discovery ping interval |
+| `PI_DAMAGE_CONTROL_LOG_RAW` | `0` | Log raw commands instead of redacted |
+| `PI_DAMAGE_CONTROL_VERBOSE` | `0` | Enable verbose damage control logging |
+| `PI_DEBUG` | `0` | Enable debug mode |
+| `PI_VERBOSE` | `0` | Enable verbose mode |
+| `PI_CODING_AGENT_DIR` | `~/.pi/agent` | Pi agent home directory |
+| `PI_POWERPACK_PI` | (auto) | Path to Pi binary |
+| `PI_BIN` | (auto) | Path to Pi binary (alternative) |
