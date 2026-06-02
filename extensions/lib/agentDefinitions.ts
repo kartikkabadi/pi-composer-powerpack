@@ -75,6 +75,14 @@ export function clearAgentCache(): void {
 	agentCache.clear();
 }
 
+/** Get cache statistics */
+export function getAgentCacheStats(): { size: number; keys: string[] } {
+	return {
+		size: agentCache.size,
+		keys: Array.from(agentCache.keys()),
+	};
+}
+
 /**
  * Load Pi-Pi expert agents for a project cwd.
  *
