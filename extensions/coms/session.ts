@@ -51,7 +51,11 @@ export interface ComsSessionState {
 	shuttingDown: boolean;
 }
 
-/** Create a fresh ComsSessionState with all fields null/false. */
+/**
+ * Create a fresh ComsSessionState with all fields null/false.
+ *
+ * @returns A new session state object
+ */
 export function createSessionState(): ComsSessionState {
 	return {
 		identity: null,
@@ -66,7 +70,18 @@ export function createSessionState(): ComsSessionState {
 	};
 }
 
-/** Boot the coms session: resolve identity, bind endpoint, register in the pool, and start timers. */
+/**
+ * Boot the coms session.
+ *
+ * Resolves identity, binds endpoint, registers in the pool, and starts timers.
+ *
+ * @param pi - The extension API
+ * @param state - The session state to initialize
+ * @param ctx - The extension context
+ * @param runtime - The coms runtime
+ * @param renderPool - The render pool for UI updates
+ * @param inboundQueue - Queue for inbound messages
+ */
 export async function bootSession(
 	pi: ExtensionAPI,
 	state: ComsSessionState,
@@ -86,6 +101,134 @@ export async function bootSession(
 	const project = flags.project || "default";
 	const explicit = flags.explicit === true;
 	const session_id = ulid();
+
+	const display_name = flags.name || fm.name || "agent";
+	const purpose = flags.purpose || fm.purpose || "Pi agent";
+	const model = process.env.PI_MODEL || "unknown";
+	const color = flags.color || fm.color || fallbackColor(session_id);
+	const cwd = process.cwd();
+
+	state.identity = {
+		session_id,
+		name: display_name,
+		purpose,
+		model,
+		color,
+		cwd,
+		project,
+	};
+
+	state.displayProject = project;
+	state.includeExplicit = explicit;
+
+	const endpoint = makeEndpoint(session_id);
+	const socketsDir = join(COMS_DIR, "sockets");
+	if (!existsSync(socketsDir)) {
+		mkdirSync(socketsDir, { recursive: true });
+	}
+
+	try {
+		state.server = await runtime.bindEndpoint(endpoint, (socket: Socket) => {
+			runtime.handleConnection(socket);
+		});
+		if (process.platform !== "win32") {
+			try { chmodSync(endpoint, 0o600); } catch { /* ignore */ }
+		}
+
+		const entry: RegistryEntry = {
+			session_id,
+			name: display_name,
+			purpose,
+			model,
+			color,
+			pid: process.pid,
+			endpoint,
+			cwd,
+			started_at: nowIso(),
+			explicit,
+			version: 1,
+		};
+		writeRegistryAtomic(entry, project);
+
+		state.pingTimer = setInterval(() => {
+			runtime.discoveryPing();
+		}, PING_INTERVAL_MS);
+
+		state.keepaliveTimer = setInterval(() => {
+			runtime.keepalive();
+		}, KEEPALIVE_INTERVAL_MS);
+
+		ctx.ui.notify(`coms: ${display_name} online (${endpoint})`, "info");
+	} catch (err) {
+		ctx.ui.notify(`coms: failed to start — ${err}`, "error");
+	}
+}
+
+/**
+ * Handle agent end event.
+ *
+ * @param state - The session state
+ * @param inboundQueue - Queue for inbound messages
+ * @param pendingReplies - Map of pending replies
+ */
+export function handleAgentEnd(
+	state: ComsSessionState,
+	inboundQueue: Map<string, InboundContext>,
+	pendingReplies: Map<string, PendingReply>,
+): void {
+	// Clear inbound state
+	state.currentInbound = null;
+}
+
+/**
+ * Clean shutdown of the coms session.
+ *
+ * @param pi - The extension API
+ * @param state - The session state to clean up
+ * @param inboundQueue - Queue for inbound messages
+ * @param pendingReplies - Map of pending replies
+ */
+export async function cleanShutdown(
+	pi: ExtensionAPI,
+	state: ComsSessionState,
+	inboundQueue: Map<string, InboundContext>,
+	pendingReplies: Map<string, PendingReply>,
+): Promise<void> {
+	if (state.shuttingDown) return;
+	state.shuttingDown = true;
+
+	if (state.pingTimer) {
+		clearInterval(state.pingTimer);
+		state.pingTimer = null;
+	}
+
+	if (state.keepaliveTimer) {
+		clearInterval(state.keepaliveTimer);
+		state.keepaliveTimer = null;
+	}
+
+	if (state.identity) {
+		removeRegistryEntry(state.identity.project, state.identity.name);
+	}
+
+	if (state.server) {
+		try {
+			state.server.close();
+		} catch {
+			// ignore
+		}
+		state.server = null;
+	}
+
+	// Clear pending replies
+	for (const [, reply] of pendingReplies) {
+		clearTimeout(reply.timer);
+		reply.reject(new Error("coms shutting down"));
+	}
+	pendingReplies.clear();
+
+	state.identity = null;
+}
 
 	const defaultName = `agent-${session_id.slice(-6)}`;
 	const desiredName = flags.name || fm.name || defaultName;
