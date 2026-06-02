@@ -25,6 +25,7 @@ import {
 	cleanShutdown,
 } from "./session.ts";
 
+/** Pi extension entry point: registers coms flags, tools, session lifecycle, and the /coms command. */
 export default function (pi: ExtensionAPI) {
 	pi.registerFlag("name", { description: "Override agent name", type: "string", default: undefined });
 	pi.registerFlag("purpose", { description: "Override agent purpose", type: "string", default: undefined });
