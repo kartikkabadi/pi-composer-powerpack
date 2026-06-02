@@ -15,17 +15,18 @@ import { basename } from "node:path";
 
 export type { Theme };
 
-// ── Theme assignments ──────────────────────────────────────────────────────
-//
-// Key   = extension filename without extension (matches extensions/<key>.ts)
-// Value = desired theme from .pi/themes/<value>.json
-//
-// Only "mono-black" ships in this package (themes/mono-black.json).
-// Other entries are aspirational — they resolve only if the user has the
-// corresponding theme installed in ~/.pi/agent/themes/ or .pi/themes/.
-// Theme switching is a no-op until Pi exposes a stable API, so these are
-// metadata only (used for future theme-switch support).
-//
+/**
+ * Mapping of extension filenames to their desired theme names.
+ *
+ * Keys are extension filenames without the .ts extension (matching
+ * extensions/<key>.ts). Values are theme names from .pi/themes/<value>.json.
+ *
+ * Only "mono-black" ships in this package (themes/mono-black.json).
+ * Other entries are aspirational — they resolve only if the user has the
+ * corresponding theme installed in ~/.pi/agent/themes/ or .pi/themes/.
+ * Theme switching is a no-op until Pi exposes a stable API, so these are
+ * metadata only (used for future theme-switch support).
+ */
 export const THEME_MAP: Record<string, string> = {
 	"cursor-sdk": "mono-black",
 	"agent-chain": "midnight-ocean",
@@ -39,15 +40,39 @@ export const THEME_MAP: Record<string, string> = {
 	"tilldone": "everforest",
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-
-// ── Theme ──────────────────────────────────────────────────────────────────
-
-/** Theme switching is intentionally a no-op until Pi exposes a stable API. */
+/**
+ * Apply the default theme for an extension.
+ *
+ * This function is intentionally a no-op until Pi exposes a stable API
+ * for theme switching. Currently returns false to indicate no theme
+ * was applied.
+ *
+ * @param _fileUrl - The import.meta.url of the calling extension (unused)
+ * @param _ctx - The extension context (unused)
+ * @returns Always returns false (no-op)
+ */
 export function applyExtensionTheme(_fileUrl: string, _ctx: ExtensionContext): boolean {
 	return false;
 }
-// ── Title ──────────────────────────────────────────────────────────────────
+
+/**
+ * Apply extension defaults for a given extension.
+ *
+ * Sets the terminal title based on the extension name and applies any
+ * default configuration. This function is called during session_start
+ * to initialize extension-specific settings.
+ *
+ * @param fileUrl - The import.meta.url of the calling extension
+ * @param ctx - The extension context for UI updates
+ * @returns Always returns true to indicate defaults were applied
+ */
+export function applyExtensionDefaults(fileUrl: string, ctx: ExtensionContext): boolean {
+	const name = basename(fileUrl).replace(/\.[^.]+$/, "");
+	if (name) {
+		ctx.ui.setTitle(`pi-${name}`);
+	}
+	return true;
+}
 
 /**
  * Read process.argv to find the first -e / --extension flag value.
