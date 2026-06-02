@@ -15,7 +15,15 @@ export interface PoolWidgetDeps {
 	peerCards: Map<string, PeerCard>;
 }
 
-/** Create a pool widget renderer that reads registry entries and peer cards to produce terminal lines. */
+/**
+ * Create a pool widget renderer.
+ *
+ * Reads registry entries and peer cards to produce terminal lines
+ * displaying the coms peer pool status.
+ *
+ * @param deps - Dependencies for the renderer
+ * @returns A function that renders the pool widget given width and theme
+ */
 export function createRenderPool(deps: PoolWidgetDeps): (width: number, theme: Theme) => string[] {
 	return function renderPool(width: number, theme: Theme): string[] {
 		const identity = deps.getIdentity();
@@ -76,7 +84,43 @@ export function createRenderPool(deps: PoolWidgetDeps): (width: number, theme: T
 			bottomBorder = theme.fg("dim", "━".repeat(safeWidth));
 		} else {
 			const left = theme.fg("dim", "┏━") + theme.fg("border", " coms ");
-			const leftFill = theme.fg("dim", "━");
+			const right = theme.fg("dim", "━".repeat(Math.max(0, safeWidth - left.length + theme.fg("dim", "").length)));
+			topBorder = left + right;
+			bottomBorder = theme.fg("dim", "┗" + "━".repeat(safeWidth - 1));
+		}
+
+		const lines: string[] = [topBorder];
+		if (rows.length === 0) {
+			lines.push(theme.fg("dim", " (no peers)"));
+		} else {
+			for (const row of rows) {
+				const status = row.stale ? theme.fg("error", "✗") : row.pending ? theme.fg("dim", "○") : theme.fg("success", "●");
+				const nameStr = hexFg(row.color, row.name);
+				const modelStr = theme.fg("dim", ` ${abbreviateModel(row.model)}`);
+				const pctStr = row.pct !== null ? theme.fg("dim", ` ${Math.round(row.pct)}%`) : "";
+				const line = `${status} ${nameStr}${modelStr}${pctStr}`;
+				lines.push(truncateToWidth(line, safeWidth));
+			}
+		}
+		lines.push(bottomBorder);
+		return lines;
+	};
+}
+
+/**
+ * Install the pool widget in the extension context.
+ *
+ * @param ctx - The extension context
+ * @param renderPool - The pool renderer function
+ */
+export function installPoolWidget(ctx: ExtensionContext, renderPool: (width: number, theme: Theme) => string[]): void {
+	ctx.ui.setWidget("coms-pool", (_tui, theme) => ({
+		render(width: number): string[] {
+			return renderPool(width, theme);
+		},
+		invalidate() {},
+	}));
+}const leftFill = theme.fg("dim", "━");
 			const nameLen = identity ? identity.name.length : 0;
 			const rightTagVisLen = identity ? nameLen + 4 : 0;
 			const remaining = safeWidth - 9 - rightTagVisLen - 1;
