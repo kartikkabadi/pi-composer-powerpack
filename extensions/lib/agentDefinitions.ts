@@ -29,6 +29,7 @@ export type ChainDef = {
 
 /** Convert a kebab-case name to Title Case. */
 export function displayName(name: string): string {
+	if (!name || typeof name !== "string") return "";
 	return name
 		.split("-")
 		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -37,6 +38,7 @@ export function displayName(name: string): string {
 
 /** Parse an agent definition from a markdown file. */
 export function parseAgentMarkdown(filePath: string): AgentDef | null {
+	if (!filePath || typeof filePath !== "string") return null;
 	try {
 		const raw = readFileSync(filePath, "utf-8");
 		const { fields, skills, body } = parseMarkdownFrontmatter(raw);
@@ -64,6 +66,8 @@ export function parseAgentMarkdown(filePath: string): AgentDef | null {
  */
 export function loadPiPiExperts(cwd: string, packageAgentsDir: string): Map<string, AgentDef> {
 	const experts = new Map<string, AgentDef>();
+	if (!cwd || !packageAgentsDir) return experts;
+
 	const dirs = [
 		join(packageAgentsDir, "pi-pi"),
 		join(piAgentHome(), "agents", "pi-pi"),
@@ -85,7 +89,7 @@ export function loadPiPiExperts(cwd: string, packageAgentsDir: string): Map<stri
 }
 
 function collectMarkdownFiles(dir: string, includePiPiSubdir: boolean): string[] {
-	if (!existsSync(dir)) return [];
+	if (!dir || !existsSync(dir)) return [];
 	const paths: string[] = [];
 	try {
 		for (const entry of readdirSync(dir, { withFileTypes: true })) {
