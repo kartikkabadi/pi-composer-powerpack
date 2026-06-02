@@ -27,6 +27,9 @@ export type ChainDef = {
 	steps: ChainStep[];
 };
 
+/** Cache for parsed agent definitions */
+const agentCache = new Map<string, AgentDef>();
+
 /** Convert a kebab-case name to Title Case. */
 export function displayName(name: string): string {
 	if (!name || typeof name !== "string") return "";
@@ -39,12 +42,17 @@ export function displayName(name: string): string {
 /** Parse an agent definition from a markdown file. */
 export function parseAgentMarkdown(filePath: string): AgentDef | null {
 	if (!filePath || typeof filePath !== "string") return null;
+	
+	// Check cache first
+	const cached = agentCache.get(filePath);
+	if (cached) return cached;
+	
 	try {
 		const raw = readFileSync(filePath, "utf-8");
 		const { fields, skills, body } = parseMarkdownFrontmatter(raw);
 		if (!fields.name) return null;
 
-		return {
+		const def: AgentDef = {
 			name: fields.name,
 			description: fields.description || "",
 			tools: fields.tools || "read,grep,find,ls",
@@ -52,9 +60,19 @@ export function parseAgentMarkdown(filePath: string): AgentDef | null {
 			skills,
 			filePath,
 		};
+		
+		// Cache the result
+		agentCache.set(filePath, def);
+		
+		return def;
 	} catch {
 		return null;
 	}
+}
+
+/** Clear the agent definition cache */
+export function clearAgentCache(): void {
+	agentCache.clear();
 }
 
 /**
