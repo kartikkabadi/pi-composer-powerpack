@@ -63,17 +63,24 @@ interface AgentState {
 
 // ── Extension ────────────────────────────────────
 
+/**
+ * Agent Team extension.
+ * Dispatcher-only orchestrator with grid dashboard. The primary Pi agent
+ * can ONLY delegate work to specialist agents via dispatch_agent.
+ * Teams are loaded from .pi/agents/teams.yaml with a boot-time select dialog.
+ * Supports /agents-team, /agents-list, and /agents-grid commands.
+ */
 export default function (pi: ExtensionAPI) {
 	const agentStates: Map<string, AgentState> = new Map();
 	let allAgentDefs: AgentDef[] = [];
 	let teams: Record<string, string[]> = {};
 	let activeTeamName = "";
-		let gridCols = 2;
-		let widgetCtx: any;
-		let sessionDir = "";
-		let contextWindow = 0;
-		let teamMode = false;
-		let allToolNames: string[] = [];
+	let gridCols = 2;
+	let widgetCtx: any;
+	let sessionDir = "";
+	let contextWindow = 0;
+	let teamMode = false;
+	let allToolNames: string[] = [];
 
 	function loadAgents(cwd: string) {
 		// Create session storage dir
