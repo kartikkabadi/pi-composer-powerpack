@@ -83,7 +83,7 @@
     "@earendil-works/pi-tui": "0.75.4",
     "@eslint/js": "^9.39.1",
     "eslint": "^10.4.0",
-    "typebox": "1.1.38",
+    "typebox": "1.1.39",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.4"
   }
