@@ -43,7 +43,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "pi-cursor-sdk": "0.1.18",
+    "pi-cursor-sdk": "0.2.0",
     "yaml": "2.9.0"
   },
   "peerDependencies": {
