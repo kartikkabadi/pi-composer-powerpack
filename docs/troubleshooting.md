@@ -9,11 +9,11 @@ pi install https://github.com/kartikkabadi/pi-composer-powerpack
 pi --model cursor/composer-2.5 --cursor-fast
 ```
 
-Requires Pi **≥ 0.75.3**. Auth is post-install: run `/login` in Pi before your first real session.
+Requires Pi **≥ 0.79.0**. Auth is post-install: run `/login` in Pi before your first real session.
 
 ### `pi install` fails or package not found
 
-- Confirm Pi **≥ 0.75.3**.
+- Confirm Pi **≥ 0.79.0**.
 - Use the full GitHub URL: `pi install https://github.com/kartikkabadi/pi-composer-powerpack`
 - On maintainer machines with release-age gates, use `sfw pnpm` when developing locally; end users install via `pi install`, not `pnpm install` in the repo.
 

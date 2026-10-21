@@ -62,7 +62,7 @@ jobs:
         run: apt-get update && apt-get install -y git curl
 
       - name: Install Pi CLI
-        run: npm install -g @earendil-works/pi-coding-agent@0.75.4
+        run: npm install -g @earendil-works/pi-coding-agent@0.79.0
 
       - name: Install powerpack from checkout
         run: pi install "$GITHUB_WORKSPACE"
