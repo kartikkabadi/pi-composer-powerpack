@@ -6,7 +6,7 @@
 
 **Cursor Composer 2.5 multi-agent workflows for [Pi](https://github.com/badlogic/pi-mono)** — chains, dispatch teams, Pi-Pi experts, live subagents, same-machine messaging, and damage-control safety in the terminal.
 
-For developers on **Pi ≥ 0.75.3** who want Composer fast mode with opinionated orchestration, not a separate IDE extension.
+For developers on **Pi ≥ 0.79.0** who want Composer fast mode with opinionated orchestration, not a separate IDE extension.
 
 **Agents:** read [docs/agents/README.md](docs/agents/README.md).
 
@@ -14,7 +14,7 @@ For developers on **Pi ≥ 0.75.3** who want Composer fast mode with opinionated
 
 ### Install
 
-Requires Pi **≥ 0.75.3** (see [Troubleshooting](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/docs/troubleshooting.md#install-and-startup) if install fails).
+Requires Pi **≥ 0.79.0** (see [Troubleshooting](https://github.com/kartikkabadi/pi-composer-powerpack/blob/main/docs/troubleshooting.md#install-and-startup) if install fails).
 
 ```bash
 pi install https://github.com/kartikkabadi/pi-composer-powerpack

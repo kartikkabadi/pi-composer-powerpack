@@ -5,7 +5,7 @@ Thanks for helping improve Pi Composer Powerpack.
 ## Before you start
 
 - Read [AGENTS.md](AGENTS.md) for maintainer rules (GitHub-installer-only flow, no secrets in repo).
-- Requires **Pi ≥ 0.75.3** and familiarity with Pi extensions.
+- Requires **Pi ≥ 0.79.0** and familiarity with Pi extensions.
 
 ## Development setup
 
