@@ -43,8 +43,8 @@
     "LICENSE"
   ],
   "dependencies": {
-    "pi-cursor-sdk": "0.1.18",
-    "yaml": "2.9.0"
+    "pi-cursor-sdk": "0.5.3",
+    "yaml": "2.9.1"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": ">=0.75.3",
